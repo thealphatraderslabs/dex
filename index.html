@@ -309,7 +309,7 @@ select.filter-select:focus { border-color: var(--border2); }
 /* Column header row */
 .radar-header-row {
   display: grid;
-  grid-template-columns: 36px 1fr 80px 90px 120px 70px 60px;
+  grid-template-columns: 36px 1fr 90px 90px 130px 70px 60px;
   gap: 0 12px;
   align-items: center;
   padding: 7px 20px;
@@ -328,7 +328,7 @@ select.filter-select:focus { border-color: var(--border2); }
   color: var(--muted);
   font-weight: 600;
 }
-.rh-col.right { text-align: right; }
+.rh-col.right  { text-align: right; }
 .rh-col.center { text-align: center; }
 
 /* Token row */
@@ -339,11 +339,11 @@ select.filter-select:focus { border-color: var(--border2); }
 
 .token-card {
   display: grid;
-  grid-template-columns: 36px 1fr 80px 90px 120px 70px 60px;
+  grid-template-columns: 36px 1fr 90px 90px 130px 70px 60px;
   gap: 0 12px;
   align-items: center;
   padding: 0 20px;
-  height: 52px;
+  height: 54px;
   cursor: pointer;
   border-bottom: 1px solid var(--border);
   border-left: 3px solid transparent;
@@ -425,27 +425,26 @@ select.filter-select:focus { border-color: var(--border2); }
   display: flex;
   gap: 4px;
   align-items: center;
-  flex-wrap: nowrap;
 }
 
 .social-badge {
-  width: 18px; height: 18px;
-  font-size: 10px;
+  width: 20px; height: 20px;
+  font-size: 11px;
   display: flex;
   align-items: center;
   justify-content: center;
   border: 1px solid var(--border);
-  color: var(--bg4);
+  color: var(--muted);
   background: var(--bg3);
   border-radius: 2px;
   flex-shrink: 0;
-  opacity: 0.35;
+  opacity: 0.3;
   line-height: 1;
 }
 
-.social-badge.has    { opacity: 1; color: var(--green);  border-color: rgba(0,230,118,0.35);   background: var(--green-dim); }
-.social-badge.cto    { opacity: 1; color: var(--teal);   border-color: rgba(0,184,212,0.35);   background: var(--teal-dim); }
-.social-badge.boosted{ opacity: 1; color: var(--gold);   border-color: rgba(255,213,79,0.35);  background: var(--gold-dim); }
+.social-badge.has     { opacity: 1; color: var(--green);  border-color: rgba(0,230,118,0.35);  background: var(--green-dim); }
+.social-badge.cto     { opacity: 1; color: var(--teal);   border-color: rgba(0,184,212,0.35);  background: var(--teal-dim); }
+.social-badge.boosted { opacity: 1; color: var(--gold);   border-color: rgba(255,213,79,0.35); background: var(--gold-dim); }
 
 /* Score cell */
 .card-score-row {
@@ -492,7 +491,6 @@ select.filter-select:focus { border-color: var(--border2); }
   padding: 2px 5px;
   border: 1px solid;
   white-space: nowrap;
-  flex-shrink: 0;
 }
 
 .verdict-strong { color: var(--green);  border-color: rgba(0,230,118,0.3);  background: var(--green-dim); }
@@ -502,8 +500,9 @@ select.filter-select:focus { border-color: var(--border2); }
 
 /* Age cell */
 .card-age  { font-size: 10px; color: var(--muted); text-align: right; white-space: nowrap; }
-.card-desc { display: none; } /* hidden in list view */
+.card-desc { display: none; }
 .card-footer { display: none; }
+.card-header { display: none; }
 
 /* Empty state */
 .empty-state {
@@ -1478,6 +1477,7 @@ let state = {
   lastMinuteReset: Date.now(),
   metaData: [],
   boostsTopData: [],
+  _ready: false,        // suppress toasts during initial WS burst
 };
 
 // Load watchlist from localStorage
@@ -1613,9 +1613,10 @@ function ingestToken(tokenData, source = 'profile') {
     state.seenCount++;
     el('stat-seen').textContent = state.seenCount;
     if (state.tokens.length > 500) state.tokens.pop();
-    // Toast for new tokens
-    if (source !== 'init') {
-      showToast(`New profile: ${tokenData.chainId.toUpperCase()} · ${shortenAddr(tokenData.tokenAddress)}`, 'profile');
+    // Toast only after initial burst has settled
+    if (state._ready) {
+      const label = tokenData.name ? tokenData.name : shortenAddr(tokenData.tokenAddress);
+      showToast(`New profile: ${tokenData.chainId.toUpperCase()} · ${label}`, 'profile');
     }
   }
 
@@ -1639,7 +1640,9 @@ function ingestBoost(boostData) {
 
   el('stat-boosts').textContent = Object.keys(state.boostMap).length;
 
-  showToast(`⚡ Boost: ${boostData.chainId?.toUpperCase()} · ${shortenAddr(boostData.tokenAddress)} (+${boostData.amount || '?'})`, 'boost');
+  if (state._ready) {
+    showToast(`⚡ Boost: ${boostData.chainId?.toUpperCase()} · ${shortenAddr(boostData.tokenAddress)} (+${boostData.amount || '?'})`, 'boost');
+  }
 }
 
 function ingestCTO(ctoData) {
@@ -1656,7 +1659,9 @@ function ingestCTO(ctoData) {
     if (state.currentScreen === 'radar') renderRadar();
   }
 
-  showToast(`🔄 CTO: ${ctoData.chainId?.toUpperCase()} · ${shortenAddr(ctoData.tokenAddress)}`, 'cto');
+  if (state._ready) {
+    showToast(`🔄 CTO: ${ctoData.chainId?.toUpperCase()} · ${shortenAddr(ctoData.tokenAddress)}`, 'cto');
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -1757,7 +1762,7 @@ function renderRadar() {
   grid.innerHTML = `
     <div class="radar-header-row">
       <div class="rh-col"></div>
-      <div class="rh-col">Token</div>
+      <div class="rh-col">Token / Contract</div>
       <div class="rh-col">Chain</div>
       <div class="rh-col center">Socials</div>
       <div class="rh-col">Score</div>
@@ -1785,6 +1790,9 @@ function buildTokenCard(token) {
   const hasWebsite = links.some(l => l.label === 'Website' || (!l.type && l.url));
   const age = timeAgo(token._firstSeen);
 
+  // Prefer human-readable name/symbol over address
+  const displayName = token.name || token.symbol || shortenAddr(token.tokenAddress);
+
   const div = document.createElement('div');
   div.className = `token-card score-${sc}`;
   div.onclick = () => openResearchPanel(token);
@@ -1796,16 +1804,16 @@ function buildTokenCard(token) {
       ? `<img class="token-icon" src="${token.icon}" onerror="this.outerHTML='<div class=\'token-icon-placeholder\'>🪙</div>'" alt="">`
       : `<div class="token-icon-placeholder">🪙</div>`}
 
-    <!-- identity -->
+    <!-- identity: name on top, contract address below -->
     <div class="token-meta">
-      <div class="token-name">${token.tokenAddress ? shortenName(token.tokenAddress) : 'Unknown'}</div>
+      <div class="token-name">${escHtml(displayName)}</div>
       <div class="token-addr">${shortenAddr(token.tokenAddress)}</div>
     </div>
 
     <!-- chain -->
     <div class="card-chain ${chainClass(token.chainId)}">${token.chainId?.toUpperCase() || '?'}</div>
 
-    <!-- socials (icon-only dots) -->
+    <!-- socials (icon dots) -->
     <div class="card-socials">
       <div class="social-badge ${hasTwitter ? 'has' : ''}" title="Twitter">𝕏</div>
       <div class="social-badge ${hasTelegram ? 'has' : ''}" title="Telegram">✈</div>
@@ -2520,6 +2528,9 @@ function init() {
   connectWS('updates', ENDPOINTS.wsUpdates, (token) => {
     ingestToken(token, 'update');
   });
+
+  // Suppress toasts during the initial WS data burst, enable after 4s
+  setTimeout(() => { state._ready = true; }, 4000);
 
   // Update connecting message
   setTimeout(() => {
