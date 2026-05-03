@@ -1374,6 +1374,7 @@ hr.rule { border: none; border-top: 1px solid var(--border); margin: 14px 0; }
       <div class="filter-chip" id="filter-hastwitter" onclick="toggleFilter('hastwitter', this)">🐦 Has Twitter</div>
       <div class="filter-chip" id="filter-hassite" onclick="toggleFilter('hassite', this)">🌐 Has Website</div>
       <div class="filter-chip" id="filter-cto" onclick="toggleFilter('cto', this)">🔄 CTO Only</div>
+      <div class="filter-chip" id="filter-newonly" onclick="toggleFilter('newonly', this)">🆕 New Only (&lt;48h)</div>
       <div class="filter-sep"></div>
       <span class="filter-label">Score</span>
       <select class="filter-select" id="filter-score" onchange="applyFilters()">
@@ -1493,7 +1494,7 @@ let state = {
   ctoSet: new Set(),    // chain:addr keys of CTOs
   adSet: new Set(),     // chain:addr keys of ad tokens
   watchlist: [],        // array of {chainId, tokenAddress, addedAt, profileData}
-  filters: { chain: 'all', boosted: false, hastwitter: false, hassite: false, cto: false, minScore: 0 },
+  filters: { chain: 'all', boosted: false, hastwitter: false, hassite: false, cto: false, minScore: 0, newonly: false },
   currentScreen: 'radar',
   panelToken: null,
   wsConnections: {},
@@ -1614,6 +1615,53 @@ async function _runNameFetchQueue() {
   }
   _nameFetchRunning = false;
 }
+
+// ═══════════════════════════════════════════════════════════════
+//  BACKGROUND PAIR-AGE FETCHER
+//  Fetches pairCreatedAt for every new token so we can show real
+//  on-chain age and separate new deployments from old tokens that
+//  just updated their DexScreener profile.
+//  Throttled: 1 fetch per 4s to protect rate limit headroom.
+// ═══════════════════════════════════════════════════════════════
+let _ageFetchQueue = [];
+let _ageFetchRunning = false;
+
+function queueAgeFetch(token) {
+  if (token._pairCreatedAt !== undefined) return;
+  _ageFetchQueue.push(token);
+  if (!_ageFetchRunning) _runAgeFetchQueue();
+}
+
+async function _runAgeFetchQueue() {
+  _ageFetchRunning = true;
+  while (_ageFetchQueue.length > 0) {
+    const token = _ageFetchQueue.shift();
+    const key = tokenKey(token);
+    if (token._pairCreatedAt !== undefined) continue;
+    try {
+      const data = await apiGet(ENDPOINTS.tokenPairs(token.chainId, token.tokenAddress), 8000);
+      const pairs = Array.isArray(data) ? data : [];
+      const best = pairs.sort((a,b) => (b.liquidity?.usd||0)-(a.liquidity?.usd||0))[0];
+
+      const stored = state.tokens.find(t => tokenKey(t) === key);
+      if (stored) {
+        stored._pairCreatedAt = best?.pairCreatedAt || null;
+        // Also grab name while we're here
+        const name   = best?.baseToken?.name   || null;
+        const symbol = best?.baseToken?.symbol || null;
+        if (name && !stored.name)     stored.name   = name;
+        if (symbol && !stored.symbol) stored.symbol = symbol;
+        if (name || symbol) state.nameCache[key] = { name: name||'', symbol: symbol||'' };
+        // Patch DOM row in-place
+        const row = document.querySelector(`.token-card[data-key="${key}"]`);
+        if (row) _patchRow(row, stored);
+      }
+    } catch(e) { /* silent */ }
+    await new Promise(r => setTimeout(r, 4000));
+  }
+  _ageFetchRunning = false;
+}
+
 function connectWS(name, url, onMessage) {
   function connect() {
     const ws = new WebSocket(url);
@@ -1696,8 +1744,8 @@ function ingestToken(tokenData, source = 'profile') {
     state.seenCount++;
     el('stat-seen').textContent = state.seenCount;
     if (state.tokens.length > 500) state.tokens.pop();
-    // Fetch the real name/symbol in the background
-    fetchTokenName(enriched);
+    // Fetch pair age + name in background
+    queueAgeFetch(enriched);
     // Toast only after initial burst has settled
     if (state._ready) {
       const label = enriched.name || enriched.symbol || shortenAddr(tokenData.tokenAddress);
@@ -1898,6 +1946,12 @@ function getFilteredTokens() {
     if (f.hassite && !t.links?.some(l => l.label === 'Website' || (!l.type && l.url))) return false;
     if (f.cto && !t._isCTO) return false;
     if (t._score < f.minScore) return false;
+    // New Only: pair must be < 48h old (uses fetched pair age)
+    if (f.newonly) {
+      const pairAge = t._pairCreatedAt;
+      if (pairAge && (Date.now() - pairAge) > 48 * 3600 * 1000) return false;
+      // If not yet fetched (_pairCreatedAt undefined), show it (benefit of the doubt)
+    }
     return true;
   });
 
@@ -1907,9 +1961,9 @@ function getFilteredTokens() {
     if (by === 'score') {
       av = a._score || 0;
       bv = b._score || 0;
-    } else { // age — lower _firstSeen = older
-      av = a._firstSeen || 0;
-      bv = b._firstSeen || 0;
+    } else { // age — use pair on-chain age, fall back to WS arrival
+      av = a._pairCreatedAt || a._firstSeen || 0;
+      bv = b._pairCreatedAt || b._firstSeen || 0;
     }
     return dir === 'desc' ? bv - av : av - bv;
   });
@@ -2067,7 +2121,7 @@ function _patchRow(row, token) {
 
   // Age
   const ageEl = row.querySelector('.card-age');
-  if (ageEl) ageEl.textContent = timeAgo(token._firstSeen);
+  if (ageEl) ageEl.innerHTML = tokenAgeDisplay(token);
 }
 
 function buildTokenCard(token) {
@@ -2078,7 +2132,7 @@ function buildTokenCard(token) {
   const hasTwitter = links.some(l => l.type === 'twitter');
   const hasTelegram = links.some(l => l.type === 'telegram');
   const hasWebsite = links.some(l => l.label === 'Website' || (!l.type && l.url));
-  const age = timeAgo(token._firstSeen);
+  const age = tokenAgeDisplay(token);
 
   // Prefer human-readable name/symbol — may arrive async via nameCache
   const cached = state.nameCache[tokenKey(token)];
@@ -2184,6 +2238,10 @@ async function openResearchPanel(token) {
     const pairs = Array.isArray(pairsData) ? pairsData : [];
     const bestPair = pairs.sort((a, b) => (b.liquidity?.usd || 0) - (a.liquidity?.usd || 0))[0] || null;
     if (bestPair) {
+      // Store pair age so the Age column and New Only filter work
+      token._pairCreatedAt = bestPair.pairCreatedAt || null;
+      const stored = state.tokens.find(t => tokenKey(t) === tokenKey(token));
+      if (stored) stored._pairCreatedAt = token._pairCreatedAt;
       rescoreWithPairData(token, bestPair);
     }
 
@@ -2789,6 +2847,28 @@ function timeAgo(ts) {
   return `${Math.round(diff/86400)}d ago`;
 }
 
+// Shows real on-chain pair age. If pair is old (>48h), adds OLD flag.
+function tokenAgeDisplay(token) {
+  const ts = token._pairCreatedAt;
+  if (!ts) {
+    // Not yet fetched — show WS arrival time with a ⏳ indicator
+    return `<span style="color:var(--muted)">⏳</span>`;
+  }
+  const ageMs = Date.now() - ts;
+  const ageH  = ageMs / 3600000;
+  const label = timeAgo(ts);
+  if (ageH > 48) {
+    return `<span style="color:var(--muted);font-size:8px;letter-spacing:0.05em">OLD</span>`;
+  }
+  if (ageH > 24) {
+    return `<span style="color:var(--orange)">${label}</span>`;
+  }
+  if (ageH < 1) {
+    return `<span style="color:var(--green);font-weight:700">${label}</span>`;
+  }
+  return label;
+}
+
 function timeAgoFull(ts) {
   if (!ts) return '—';
   const diff = Math.round((Date.now() - ts) / 1000);
@@ -2880,10 +2960,10 @@ function init() {
   // Tick age column every 30s without full re-render
   setInterval(() => {
     if (state.currentScreen !== 'radar') return;
-    document.querySelectorAll('.token-card[data-key] .card-age').forEach(el => {
-      const key = el.closest('.token-card').dataset.key;
+    document.querySelectorAll('.token-card[data-key] .card-age').forEach(ageEl => {
+      const key = ageEl.closest('.token-card').dataset.key;
       const token = state.tokens.find(t => tokenKey(t) === key);
-      if (token) el.textContent = timeAgo(token._firstSeen);
+      if (token) ageEl.innerHTML = tokenAgeDisplay(token);
     });
   }, 30000);
 
