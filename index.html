@@ -1,0 +1,2505 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ATL · New Coin Intel</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+/* ═══════════════════════════════════════════════════
+   ATL DESIGN SYSTEM
+═══════════════════════════════════════════════════ */
+:root {
+  --bg:       #07090d;
+  --bg2:      #0b0f16;
+  --bg3:      #0f1520;
+  --bg4:      #141c2a;
+  --border:   rgba(255,255,255,0.06);
+  --border2:  rgba(255,255,255,0.12);
+  --green:    #00e676;
+  --green-dim: rgba(0,230,118,0.1);
+  --green-glow: rgba(0,230,118,0.25);
+  --red:      #ff4444;
+  --red-dim:  rgba(255,68,68,0.1);
+  --gold:     #ffd54f;
+  --gold-dim: rgba(255,213,79,0.1);
+  --teal:     #00b8d4;
+  --teal-dim: rgba(0,184,212,0.1);
+  --orange:   #ff6d00;
+  --orange-dim: rgba(255,109,0,0.1);
+  --text:     #e2e8f0;
+  --muted:    #4a5568;
+  --sub:      #718096;
+  --sidebar-w: 220px;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  overflow: hidden;
+}
+
+/* Grain overlay */
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.4'/%3E%3C/svg%3E");
+  opacity: 0.03;
+  pointer-events: none;
+  z-index: 9999;
+}
+
+/* Scrollbars */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: var(--bg2); }
+::-webkit-scrollbar-thumb { background: var(--border2); }
+::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+
+/* ═══════════════════════════════════════════════════
+   LAYOUT
+═══════════════════════════════════════════════════ */
+#app {
+  display: flex;
+  height: 100vh;
+  width: 100vw;
+}
+
+/* ═══════════════════════════════════════════════════
+   SIDEBAR
+═══════════════════════════════════════════════════ */
+#sidebar {
+  width: var(--sidebar-w);
+  min-width: var(--sidebar-w);
+  background: var(--bg2);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.sidebar-logo {
+  padding: 20px 18px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.logo-atl {
+  font-family: 'Syne', sans-serif;
+  font-weight: 800;
+  font-size: 15px;
+  color: var(--green);
+  letter-spacing: 0.05em;
+}
+
+.logo-name {
+  font-family: 'Syne', sans-serif;
+  font-weight: 600;
+  font-size: 11px;
+  color: var(--sub);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin-top: 2px;
+}
+
+.sidebar-ws-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  padding: 6px 8px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+}
+
+.ws-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--muted);
+  flex-shrink: 0;
+}
+.ws-dot.live { background: var(--green); box-shadow: 0 0 6px var(--green); animation: pulse-dot 2s infinite; }
+.ws-dot.error { background: var(--red); }
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.ws-label { font-size: 10px; color: var(--sub); letter-spacing: 0.05em; }
+
+.sidebar-nav {
+  flex: 1;
+  padding: 12px 0;
+  overflow-y: auto;
+}
+
+.nav-section {
+  padding: 6px 18px 4px;
+  font-size: 9px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-top: 8px;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 18px;
+  cursor: pointer;
+  color: var(--sub);
+  font-size: 12px;
+  font-weight: 500;
+  transition: all 0.15s;
+  border-left: 2px solid transparent;
+  position: relative;
+}
+
+.nav-item:hover { background: var(--bg3); color: var(--text); }
+.nav-item.active { background: var(--green-dim); color: var(--green); border-left-color: var(--green); }
+
+.nav-icon { font-size: 14px; width: 18px; text-align: center; }
+
+.nav-badge {
+  margin-left: auto;
+  background: var(--green-dim);
+  color: var(--green);
+  font-size: 9px;
+  padding: 2px 5px;
+  border: 1px solid rgba(0,230,118,0.2);
+  font-weight: 600;
+}
+
+.sidebar-stats {
+  padding: 12px 18px;
+  border-top: 1px solid var(--border);
+}
+
+.stat-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 0;
+}
+
+.stat-label { font-size: 10px; color: var(--muted); }
+.stat-val { font-size: 11px; color: var(--text); font-weight: 500; }
+.stat-val.green { color: var(--green); }
+
+/* ═══════════════════════════════════════════════════
+   MAIN CONTENT
+═══════════════════════════════════════════════════ */
+#main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Top bar */
+#topbar {
+  height: 52px;
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  padding: 0 20px;
+  gap: 16px;
+  flex-shrink: 0;
+}
+
+.topbar-title {
+  font-family: 'Syne', sans-serif;
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--text);
+}
+
+.topbar-sub {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.topbar-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Filter bar */
+#filterbar {
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  padding: 10px 20px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+}
+
+.filter-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; margin-right: 4px; }
+
+.filter-chip {
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  background: var(--bg3);
+  color: var(--sub);
+  font-size: 10px;
+  font-family: 'JetBrains Mono', monospace;
+  cursor: pointer;
+  transition: all 0.15s;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.filter-chip:hover { border-color: var(--border2); color: var(--text); }
+.filter-chip.active { background: var(--green-dim); border-color: rgba(0,230,118,0.3); color: var(--green); }
+
+.filter-sep { width: 1px; height: 20px; background: var(--border); margin: 0 4px; }
+
+select.filter-select {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  color: var(--sub);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  padding: 4px 8px;
+  outline: none;
+  cursor: pointer;
+}
+
+select.filter-select:focus { border-color: var(--border2); }
+
+/* Content area */
+#content {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+}
+
+/* Screen containers */
+.screen { display: none; width: 100%; height: 100%; overflow: hidden; }
+.screen.active { display: flex; }
+
+/* ═══════════════════════════════════════════════════
+   SCREEN 1 — LIVE RADAR
+═══════════════════════════════════════════════════ */
+#screen-radar {
+  flex-direction: column;
+}
+
+.radar-grid {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 20px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 10px;
+  align-content: start;
+}
+
+/* Token card */
+.token-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  padding: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+  position: relative;
+  overflow: hidden;
+  animation: slideIn 0.3s ease;
+}
+
+@keyframes slideIn {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.token-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: var(--border);
+  transition: background 0.2s;
+}
+
+.token-card.score-strong::before { background: var(--green); }
+.token-card.score-watch::before { background: var(--gold); }
+.token-card.score-weak::before { background: var(--orange); }
+.token-card.score-avoid::before { background: var(--red); }
+
+.token-card:hover { background: var(--bg3); border-color: var(--border2); transform: translateY(-1px); }
+
+.card-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.token-icon {
+  width: 36px; height: 36px;
+  border-radius: 0;
+  background: var(--bg4);
+  border: 1px solid var(--border);
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.token-icon-placeholder {
+  width: 36px; height: 36px;
+  background: var(--bg4);
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+.token-meta { flex: 1; min-width: 0; }
+
+.token-name {
+  font-family: 'Syne', sans-serif;
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.token-addr {
+  font-size: 10px;
+  color: var(--muted);
+  font-weight: 300;
+  margin-top: 1px;
+}
+
+.card-chain {
+  padding: 3px 7px;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+
+.chain-solana { background: rgba(153,69,255,0.15); color: #9945ff; border: 1px solid rgba(153,69,255,0.25); }
+.chain-bsc { background: rgba(240,185,11,0.12); color: #f0b90b; border: 1px solid rgba(240,185,11,0.2); }
+.chain-base { background: rgba(0,82,255,0.12); color: #0052ff; border: 1px solid rgba(0,82,255,0.2); }
+.chain-ethereum { background: rgba(98,126,234,0.12); color: #627eea; border: 1px solid rgba(98,126,234,0.2); }
+.chain-default { background: var(--teal-dim); color: var(--teal); border: 1px solid rgba(0,184,212,0.2); }
+
+/* Social row */
+.card-socials {
+  display: flex;
+  gap: 5px;
+  margin-bottom: 10px;
+}
+
+.social-badge {
+  padding: 2px 7px;
+  font-size: 9px;
+  letter-spacing: 0.05em;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  background: var(--bg3);
+}
+
+.social-badge.has { color: var(--green); border-color: rgba(0,230,118,0.2); background: var(--green-dim); }
+.social-badge.cto { color: var(--teal); border-color: rgba(0,184,212,0.25); background: var(--teal-dim); }
+.social-badge.boosted { color: var(--gold); border-color: rgba(255,213,79,0.25); background: var(--gold-dim); }
+
+/* Score bar */
+.card-score-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.score-bar-track {
+  flex: 1;
+  height: 3px;
+  background: var(--bg4);
+}
+
+.score-bar-fill {
+  height: 100%;
+  background: var(--muted);
+  transition: width 0.5s ease;
+}
+
+.score-bar-fill.strong { background: var(--green); }
+.score-bar-fill.watch { background: var(--gold); }
+.score-bar-fill.weak { background: var(--orange); }
+.score-bar-fill.avoid { background: var(--red); }
+
+.score-num {
+  font-family: 'Syne', sans-serif;
+  font-weight: 700;
+  font-size: 13px;
+  min-width: 30px;
+  text-align: right;
+}
+
+.score-verdict {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border: 1px solid;
+}
+
+.verdict-strong { color: var(--green); border-color: rgba(0,230,118,0.3); background: var(--green-dim); }
+.verdict-watch { color: var(--gold); border-color: rgba(255,213,79,0.3); background: var(--gold-dim); }
+.verdict-weak { color: var(--orange); border-color: rgba(255,109,0,0.3); background: var(--orange-dim); }
+.verdict-avoid { color: var(--red); border-color: rgba(255,68,68,0.3); background: var(--red-dim); }
+
+.card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.card-age { font-size: 10px; color: var(--muted); }
+.card-desc {
+  font-size: 10px;
+  color: var(--sub);
+  line-height: 1.5;
+  margin-bottom: 8px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Empty state */
+.empty-state {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 80px 20px;
+  color: var(--muted);
+  gap: 12px;
+}
+
+.empty-icon { font-size: 32px; opacity: 0.4; }
+.empty-text { font-size: 12px; }
+
+/* Connecting state */
+.connecting-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(7,9,13,0.9);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  z-index: 10;
+}
+
+.spinner {
+  width: 32px; height: 32px;
+  border: 2px solid var(--border);
+  border-top-color: var(--green);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.connecting-text { font-size: 12px; color: var(--sub); }
+
+/* ═══════════════════════════════════════════════════
+   SCREEN 2 — RESEARCH PANEL (slide-in)
+═══════════════════════════════════════════════════ */
+#research-panel {
+  position: fixed;
+  top: 0; right: 0; bottom: 0;
+  width: 580px;
+  background: var(--bg2);
+  border-left: 1px solid var(--border2);
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  transform: translateX(100%);
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  overflow: hidden;
+}
+
+#research-panel.open { transform: translateX(0); }
+
+.panel-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  z-index: 99;
+  display: none;
+  backdrop-filter: blur(2px);
+}
+.panel-backdrop.show { display: block; }
+
+.panel-topbar {
+  display: flex;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  gap: 12px;
+}
+
+.panel-close {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  color: var(--sub);
+  width: 28px; height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 14px;
+  flex-shrink: 0;
+  transition: all 0.15s;
+}
+.panel-close:hover { border-color: var(--red); color: var(--red); }
+
+.panel-title {
+  font-family: 'Syne', sans-serif;
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--text);
+  flex: 1;
+}
+
+.panel-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+}
+
+/* Panel loading */
+.panel-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 200px;
+  gap: 12px;
+  color: var(--muted);
+}
+
+/* Token hero */
+.token-hero {
+  position: relative;
+  margin-bottom: 20px;
+}
+
+.token-hero-banner {
+  width: 100%;
+  height: 100px;
+  object-fit: cover;
+  background: var(--bg4);
+  border: 1px solid var(--border);
+  display: block;
+}
+
+.token-hero-banner-placeholder {
+  width: 100%;
+  height: 80px;
+  background: linear-gradient(135deg, var(--bg3) 0%, var(--bg4) 100%);
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.token-hero-info {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.token-hero-icon {
+  width: 52px; height: 52px;
+  border: 2px solid var(--border2);
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.token-hero-name {
+  font-family: 'Syne', sans-serif;
+  font-weight: 800;
+  font-size: 20px;
+  color: var(--text);
+  line-height: 1;
+}
+
+.token-hero-addr {
+  font-size: 10px;
+  color: var(--muted);
+  margin-top: 4px;
+  word-break: break-all;
+  line-height: 1.4;
+}
+
+.token-hero-links {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+
+.hero-link {
+  padding: 4px 10px;
+  font-size: 10px;
+  border: 1px solid var(--border);
+  color: var(--sub);
+  text-decoration: none;
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.hero-link:hover { border-color: var(--border2); color: var(--text); }
+.hero-link.twitter:hover { border-color: rgba(29,161,242,0.4); color: #1da1f2; }
+.hero-link.telegram:hover { border-color: rgba(0,136,204,0.4); color: #08c; }
+.hero-link.website:hover { border-color: rgba(0,230,118,0.4); color: var(--green); }
+
+/* Verdict block */
+.verdict-block {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  padding: 16px;
+  margin-bottom: 16px;
+  position: relative;
+  overflow: hidden;
+}
+
+.verdict-block::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+}
+
+.verdict-block.strong::before { background: var(--green); }
+.verdict-block.watch::before { background: var(--gold); }
+.verdict-block.weak::before { background: var(--orange); }
+.verdict-block.avoid::before { background: var(--red); }
+
+.verdict-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.verdict-title { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.12em; }
+
+.verdict-score-big {
+  font-family: 'Syne', sans-serif;
+  font-weight: 800;
+  font-size: 36px;
+  line-height: 1;
+}
+
+.verdict-score-big.strong { color: var(--green); text-shadow: 0 0 20px var(--green-glow); }
+.verdict-score-big.watch { color: var(--gold); }
+.verdict-score-big.weak { color: var(--orange); }
+.verdict-score-big.avoid { color: var(--red); }
+
+.verdict-label-big {
+  font-family: 'Syne', sans-serif;
+  font-weight: 700;
+  font-size: 16px;
+  margin-top: 4px;
+}
+
+.verdict-breakdown {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.vb-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+}
+
+.vb-icon { font-size: 11px; width: 16px; flex-shrink: 0; }
+.vb-label { color: var(--sub); flex: 1; }
+.vb-val { font-weight: 500; color: var(--text); }
+
+/* Section headers */
+.section-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.section-title {
+  font-family: 'Syne', sans-serif;
+  font-weight: 700;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--sub);
+}
+
+.section-icon { font-size: 13px; }
+
+/* Market data grid */
+.market-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.market-cell {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  padding: 10px 12px;
+}
+
+.mc-label { font-size: 9px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 4px; }
+.mc-val { font-size: 15px; font-weight: 500; color: var(--text); }
+.mc-sub { font-size: 10px; color: var(--sub); margin-top: 2px; }
+
+.change-pos { color: var(--green); }
+.change-neg { color: var(--red); }
+.change-neu { color: var(--muted); }
+
+/* Pressure bars */
+.pressure-section { margin-bottom: 16px; }
+
+.pressure-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.pressure-tf { font-size: 10px; color: var(--muted); width: 24px; flex-shrink: 0; }
+
+.pressure-track {
+  flex: 1;
+  height: 8px;
+  background: rgba(255,68,68,0.3);
+  position: relative;
+  overflow: hidden;
+}
+
+.pressure-buy-fill {
+  position: absolute;
+  top: 0; left: 0; bottom: 0;
+  background: rgba(0,230,118,0.6);
+  transition: width 0.5s ease;
+}
+
+.pressure-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 9px;
+  margin-top: 2px;
+}
+
+.pressure-buy-label { color: var(--green); }
+.pressure-sell-label { color: var(--red); }
+
+.pressure-pct { font-size: 11px; font-weight: 500; width: 36px; text-align: right; flex-shrink: 0; }
+
+/* Timeline */
+.timeline { margin-bottom: 16px; }
+
+.tl-item {
+  display: flex;
+  gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+  align-items: flex-start;
+}
+
+.tl-item:last-child { border-bottom: none; }
+
+.tl-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  margin-top: 3px;
+  flex-shrink: 0;
+}
+
+.tl-dot.profile { background: var(--teal); }
+.tl-dot.boost { background: var(--gold); }
+.tl-dot.ad { background: var(--orange); }
+.tl-dot.cto { background: var(--green); }
+
+.tl-content { flex: 1; }
+.tl-event { font-size: 11px; color: var(--text); }
+.tl-time { font-size: 10px; color: var(--muted); margin-top: 2px; }
+.tl-amount { font-size: 10px; color: var(--gold); }
+
+/* Danger checklist */
+.danger-list { margin-bottom: 16px; }
+
+.danger-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 11px;
+}
+
+.danger-item:last-child { border-bottom: none; }
+
+.danger-icon { font-size: 13px; width: 16px; flex-shrink: 0; }
+.danger-text { flex: 1; color: var(--sub); }
+.danger-status { font-size: 10px; font-weight: 600; }
+
+.status-ok { color: var(--green); }
+.status-warn { color: var(--gold); }
+.status-bad { color: var(--red); }
+
+/* Description box */
+.desc-box {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  padding: 12px;
+  margin-bottom: 16px;
+  font-size: 11px;
+  color: var(--sub);
+  line-height: 1.7;
+}
+
+/* ═══════════════════════════════════════════════════
+   SCREEN 3 — BOOST TRACKER
+═══════════════════════════════════════════════════ */
+#screen-boosts {
+  flex-direction: column;
+}
+
+.boosts-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 20px;
+}
+
+.boosts-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.boosts-table th {
+  text-align: left;
+  padding: 8px 10px;
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.boosts-table td {
+  padding: 10px;
+  border-bottom: 1px solid var(--border);
+  font-size: 11px;
+  vertical-align: middle;
+}
+
+.boosts-table tr:hover td { background: var(--bg3); cursor: pointer; }
+
+.boost-token-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.boost-icon {
+  width: 26px; height: 26px;
+  object-fit: cover;
+  border: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.boost-name {
+  font-weight: 500;
+  color: var(--text);
+  font-size: 12px;
+}
+
+.boost-addr { font-size: 9px; color: var(--muted); }
+
+.boost-amount-bar {
+  position: relative;
+  height: 16px;
+  background: var(--bg4);
+  min-width: 80px;
+}
+
+.boost-amount-fill {
+  position: absolute;
+  top: 0; left: 0; bottom: 0;
+  background: linear-gradient(90deg, var(--gold-dim), rgba(255,213,79,0.3));
+  border-right: 1px solid var(--gold);
+}
+
+.boost-amount-text {
+  position: absolute;
+  top: 50%; right: 6px;
+  transform: translateY(-50%);
+  font-size: 10px;
+  color: var(--gold);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+/* ═══════════════════════════════════════════════════
+   SCREEN 4 — META PULSE
+═══════════════════════════════════════════════════ */
+#screen-meta {
+  flex-direction: column;
+}
+
+.meta-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 20px;
+}
+
+.meta-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 10px;
+}
+
+.meta-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  padding: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.meta-card:hover { background: var(--bg3); border-color: var(--border2); }
+
+.meta-card-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.meta-icon {
+  width: 32px; height: 32px;
+  background: var(--bg4);
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+.meta-name {
+  font-family: 'Syne', sans-serif;
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--text);
+}
+
+.meta-count { font-size: 10px; color: var(--muted); }
+
+.meta-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.meta-stat { font-size: 10px; }
+.meta-stat-label { color: var(--muted); }
+.meta-stat-val { color: var(--text); font-weight: 500; }
+
+.meta-momentum {
+  display: flex;
+  gap: 4px;
+}
+
+.momentum-cell {
+  flex: 1;
+  background: var(--bg4);
+  padding: 5px 4px;
+  text-align: center;
+}
+
+.momentum-tf { font-size: 9px; color: var(--muted); display: block; margin-bottom: 2px; }
+.momentum-val { font-size: 10px; font-weight: 600; }
+
+/* ═══════════════════════════════════════════════════
+   SCREEN 5 — WATCHLIST
+═══════════════════════════════════════════════════ */
+#screen-watchlist {
+  flex-direction: column;
+}
+
+.watchlist-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 20px;
+}
+
+.watchlist-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 300px;
+  gap: 12px;
+  color: var(--muted);
+}
+
+.watchlist-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 10px;
+}
+
+.wl-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  padding: 14px;
+  position: relative;
+}
+
+.wl-card-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.wl-remove {
+  margin-left: auto;
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  width: 22px; height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 12px;
+  flex-shrink: 0;
+  transition: all 0.15s;
+}
+.wl-remove:hover { border-color: var(--red); color: var(--red); }
+
+.wl-since { font-size: 10px; color: var(--muted); margin-top: 8px; }
+
+/* ═══════════════════════════════════════════════════
+   BUTTONS & CONTROLS
+═══════════════════════════════════════════════════ */
+.btn {
+  padding: 6px 14px;
+  font-family: 'Syne', sans-serif;
+  font-weight: 700;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  border: 1px solid var(--border);
+  background: var(--bg3);
+  color: var(--sub);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.btn:hover { border-color: var(--border2); color: var(--text); }
+
+.btn-primary {
+  background: var(--green);
+  color: #000;
+  border-color: var(--green);
+}
+
+.btn-primary:hover { background: #00ff88; box-shadow: 0 0 12px var(--green-glow); }
+
+.btn-sm { padding: 4px 10px; font-size: 9px; }
+
+/* Live indicator */
+.live-badge {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 9px;
+  color: var(--green);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+/* Count badge */
+.count-badge {
+  background: var(--green-dim);
+  color: var(--green);
+  border: 1px solid rgba(0,230,118,0.2);
+  padding: 2px 7px;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+/* Toast notifications */
+#toast-container {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.toast {
+  background: var(--bg3);
+  border: 1px solid var(--border2);
+  padding: 10px 14px;
+  font-size: 11px;
+  color: var(--text);
+  animation: toastIn 0.3s ease;
+  max-width: 300px;
+  pointer-events: auto;
+}
+
+.toast.boost { border-left: 3px solid var(--gold); }
+.toast.profile { border-left: 3px solid var(--teal); }
+.toast.cto { border-left: 3px solid var(--green); }
+
+@keyframes toastIn {
+  from { opacity: 0; transform: translateX(20px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+/* Divider */
+hr.rule { border: none; border-top: 1px solid var(--border); margin: 14px 0; }
+
+/* Refresh button */
+.refresh-btn {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--sub);
+  padding: 4px 8px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: all 0.15s;
+}
+.refresh-btn:hover { border-color: var(--border2); color: var(--text); }
+.refresh-btn.spinning { animation: spin 0.6s linear infinite; }
+
+/* Add to watchlist btn */
+.watch-btn {
+  padding: 4px 10px;
+  font-size: 10px;
+  border: 1px solid var(--border);
+  background: var(--bg4);
+  color: var(--sub);
+  cursor: pointer;
+  transition: all 0.15s;
+  font-family: 'JetBrains Mono', monospace;
+}
+.watch-btn:hover { border-color: var(--gold); color: var(--gold); }
+.watch-btn.watching { border-color: rgba(255,213,79,0.3); color: var(--gold); background: var(--gold-dim); }
+</style>
+</head>
+<body>
+
+<div id="app">
+  <!-- SIDEBAR -->
+  <aside id="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-atl">ATL · New Coin Intel</div>
+      <div class="logo-name">DexScreener Research Tool</div>
+      <div class="sidebar-ws-status">
+        <div class="ws-dot" id="ws-dot"></div>
+        <span class="ws-label" id="ws-label">Connecting...</span>
+      </div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <div class="nav-section">Discovery</div>
+      <div class="nav-item active" onclick="switchScreen('radar')" id="nav-radar">
+        <span class="nav-icon">📡</span>
+        <span>Live Radar</span>
+        <span class="nav-badge" id="radar-badge">0</span>
+      </div>
+      <div class="nav-item" onclick="switchScreen('boosts')" id="nav-boosts">
+        <span class="nav-icon">⚡</span>
+        <span>Boost Tracker</span>
+      </div>
+
+      <div class="nav-section">Intelligence</div>
+      <div class="nav-item" onclick="switchScreen('meta')" id="nav-meta">
+        <span class="nav-icon">🔥</span>
+        <span>Meta Pulse</span>
+      </div>
+
+      <div class="nav-section">Personal</div>
+      <div class="nav-item" onclick="switchScreen('watchlist')" id="nav-watchlist">
+        <span class="nav-icon">⭐</span>
+        <span>Watchlist</span>
+        <span class="nav-badge" id="wl-badge" style="display:none">0</span>
+      </div>
+    </nav>
+
+    <div class="sidebar-stats">
+      <div class="stat-row">
+        <span class="stat-label">Seen today</span>
+        <span class="stat-val green" id="stat-seen">0</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">Boosts live</span>
+        <span class="stat-val" id="stat-boosts">—</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">CTOs</span>
+        <span class="stat-val" id="stat-ctos">0</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">Rate limit</span>
+        <span class="stat-val" id="stat-rate">60/min</span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <div id="main">
+    <!-- TOP BAR -->
+    <div id="topbar">
+      <div>
+        <div class="topbar-title" id="screen-title">Live Radar</div>
+        <div class="topbar-sub" id="screen-sub">Real-time new token profile stream</div>
+      </div>
+      <div class="topbar-right">
+        <div class="live-badge">
+          <div class="ws-dot live" style="width:7px;height:7px"></div>
+          LIVE
+        </div>
+        <button class="refresh-btn" id="refresh-btn" onclick="handleRefresh()" title="Refresh">↻</button>
+      </div>
+    </div>
+
+    <!-- FILTER BAR -->
+    <div id="filterbar">
+      <span class="filter-label">Chain</span>
+      <div class="filter-chip active" onclick="setChainFilter('all', this)">All</div>
+      <div class="filter-chip" onclick="setChainFilter('solana', this)">Solana</div>
+      <div class="filter-chip" onclick="setChainFilter('bsc', this)">BSC</div>
+      <div class="filter-chip" onclick="setChainFilter('base', this)">Base</div>
+      <div class="filter-chip" onclick="setChainFilter('ethereum', this)">ETH</div>
+      <div class="filter-sep"></div>
+      <span class="filter-label">Show</span>
+      <div class="filter-chip" id="filter-boosted" onclick="toggleFilter('boosted', this)">⚡ Boosted</div>
+      <div class="filter-chip" id="filter-hastwitter" onclick="toggleFilter('hastwitter', this)">🐦 Has Twitter</div>
+      <div class="filter-chip" id="filter-hassite" onclick="toggleFilter('hassite', this)">🌐 Has Website</div>
+      <div class="filter-chip" id="filter-cto" onclick="toggleFilter('cto', this)">🔄 CTO Only</div>
+      <div class="filter-sep"></div>
+      <span class="filter-label">Score</span>
+      <select class="filter-select" id="filter-score" onchange="applyFilters()">
+        <option value="0">Any score</option>
+        <option value="60">60+ Watch</option>
+        <option value="80">80+ Strong</option>
+      </select>
+      <div class="filter-sep"></div>
+      <span id="filtered-count" style="font-size:10px;color:var(--muted)">—</span>
+    </div>
+
+    <!-- CONTENT -->
+    <div id="content">
+      <!-- SCREEN 1: RADAR -->
+      <div class="screen active" id="screen-radar">
+        <div class="radar-grid" id="radar-grid">
+          <div class="empty-state">
+            <div class="spinner"></div>
+            <div class="empty-text" id="connecting-msg">Connecting to DexScreener WebSocket...</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SCREEN 2: BOOSTS -->
+      <div class="screen" id="screen-boosts">
+        <div class="boosts-body">
+          <table class="boosts-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Token</th>
+                <th>Chain</th>
+                <th>Boost (session)</th>
+                <th>Total Boosted</th>
+                <th>Score</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="boosts-tbody">
+              <tr><td colspan="7" style="text-align:center;padding:40px;color:var(--muted)">Loading boost data...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- SCREEN 3: META -->
+      <div class="screen" id="screen-meta">
+        <div class="meta-body">
+          <div class="meta-grid" id="meta-grid">
+            <div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--muted)">Loading meta data...</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SCREEN 4: WATCHLIST -->
+      <div class="screen" id="screen-watchlist">
+        <div class="watchlist-body">
+          <div class="watchlist-grid" id="watchlist-grid">
+          </div>
+          <div class="watchlist-empty" id="watchlist-empty">
+            <div style="font-size:28px;opacity:0.3">⭐</div>
+            <div>No tokens in watchlist</div>
+            <div style="font-size:10px">Click any token card and pin it to track it here</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- RESEARCH PANEL -->
+<div class="panel-backdrop" id="panel-backdrop" onclick="closePanel()"></div>
+<div id="research-panel">
+  <div class="panel-topbar">
+    <button class="panel-close" onclick="closePanel()">✕</button>
+    <div class="panel-title" id="panel-title">Token Research</div>
+    <button class="watch-btn" id="panel-watch-btn" onclick="toggleWatchFromPanel()">+ Watch</button>
+    <a id="panel-dex-link" href="#" target="_blank" class="btn btn-sm" style="text-decoration:none">↗ DEX</a>
+  </div>
+  <div class="panel-body" id="panel-body">
+    <div class="panel-loading">
+      <div class="spinner"></div>
+      <div>Loading token data...</div>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST CONTAINER -->
+<div id="toast-container"></div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+//  CONFIG
+// ═══════════════════════════════════════════════════════════════
+const API_BASE = 'https://api.dexscreener.com';
+const WSS_BASE = 'wss://api.dexscreener.com';
+
+const ENDPOINTS = {
+  wsProfiles:   `${WSS_BASE}/token-profiles/latest/v1`,
+  wsUpdates:    `${WSS_BASE}/token-profiles/recent-updates/v1`,
+  wsBoosts:     `${WSS_BASE}/token-boosts/latest/v1`,
+  wsTopBoosts:  `${WSS_BASE}/token-boosts/top/v1`,
+  wsCTO:        `${WSS_BASE}/community-takeovers/latest/v1`,
+  wsAds:        `${WSS_BASE}/ads/latest/v1`,
+  tokenPairs:   (chain, addr) => `${API_BASE}/token-pairs/v1/${chain}/${addr}`,
+  orders:       (chain, addr) => `${API_BASE}/orders/v1/${chain}/${addr}`,
+  metaTrending: `${API_BASE}/metas/trending/v1`,
+  boostsTop:    `${API_BASE}/token-boosts/top/v1`,
+};
+
+// ═══════════════════════════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════════════════════════
+let state = {
+  tokens: [],           // all tokens seen (Map: key=chain:addr)
+  boostMap: {},         // key=chain:addr → boost data
+  ctoSet: new Set(),    // chain:addr keys of CTOs
+  adSet: new Set(),     // chain:addr keys of ad tokens
+  watchlist: [],        // array of {chainId, tokenAddress, addedAt, profileData}
+  filters: { chain: 'all', boosted: false, hastwitter: false, hassite: false, cto: false, minScore: 0 },
+  currentScreen: 'radar',
+  panelToken: null,
+  wsConnections: {},
+  seenCount: 0,
+  ctoCount: 0,
+  reqQueue: [],
+  reqCount: 0,
+  lastMinuteReset: Date.now(),
+  metaData: [],
+  boostsTopData: [],
+};
+
+// Load watchlist from localStorage
+function loadWatchlist() {
+  try {
+    const stored = localStorage.getItem('atl_watchlist');
+    if (stored) state.watchlist = JSON.parse(stored);
+  } catch(e) {}
+  renderWatchlist();
+  updateWlBadge();
+}
+
+function saveWatchlist() {
+  try { localStorage.setItem('atl_watchlist', JSON.stringify(state.watchlist)); } catch(e) {}
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  RATE-LIMITED API QUEUE (max 50 req/min, keep 10 as buffer)
+// ═══════════════════════════════════════════════════════════════
+async function apiGet(url) {
+  // Reset counter each minute
+  const now = Date.now();
+  if (now - state.lastMinuteReset > 60000) {
+    state.reqCount = 0;
+    state.lastMinuteReset = now;
+  }
+  // If near limit, wait
+  if (state.reqCount >= 50) {
+    const wait = 60000 - (now - state.lastMinuteReset) + 100;
+    await new Promise(r => setTimeout(r, wait));
+    state.reqCount = 0;
+    state.lastMinuteReset = Date.now();
+  }
+  state.reqCount++;
+  updateRateDisplay();
+  try {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } catch(e) {
+    console.warn('API error:', url, e.message);
+    return null;
+  }
+}
+
+function updateRateDisplay() {
+  const remaining = 50 - state.reqCount;
+  el('stat-rate').textContent = `${remaining}/min`;
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  WEBSOCKET MANAGER
+// ═══════════════════════════════════════════════════════════════
+function connectWS(name, url, onMessage) {
+  function connect() {
+    const ws = new WebSocket(url);
+    state.wsConnections[name] = ws;
+
+    ws.onopen = () => {
+      console.log(`WS [${name}] connected`);
+      updateWSStatus();
+    };
+
+    ws.onmessage = (evt) => {
+      try {
+        const data = JSON.parse(evt.data);
+        // Handshake: {limit, data:[...]}
+        if (data && data.data && Array.isArray(data.data)) {
+          data.data.forEach(item => onMessage(item));
+        } else if (Array.isArray(data)) {
+          data.forEach(item => onMessage(item));
+        } else if (data && data.tokenAddress) {
+          onMessage(data);
+        }
+      } catch(e) {}
+    };
+
+    ws.onerror = (e) => {
+      console.warn(`WS [${name}] error`);
+      updateWSStatus();
+    };
+
+    ws.onclose = () => {
+      console.log(`WS [${name}] closed — reconnecting in 3s`);
+      updateWSStatus();
+      setTimeout(connect, 3000);
+    };
+  }
+  connect();
+}
+
+function updateWSStatus() {
+  const connections = Object.values(state.wsConnections);
+  const anyOpen = connections.some(ws => ws && ws.readyState === WebSocket.OPEN);
+  const wsLabelEl = el('ws-label');
+  const wsDotEl = el('ws-dot');
+  if (anyOpen) {
+    wsLabelEl.textContent = 'Live streams active';
+    wsDotEl.className = 'ws-dot live';
+  } else {
+    wsLabelEl.textContent = 'Reconnecting...';
+    wsDotEl.className = 'ws-dot error';
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  TOKEN PROCESSING
+// ═══════════════════════════════════════════════════════════════
+function tokenKey(t) { return `${t.chainId}:${t.tokenAddress}`; }
+
+function ingestToken(tokenData, source = 'profile') {
+  if (!tokenData || !tokenData.tokenAddress) return;
+
+  const key = tokenKey(tokenData);
+  const existing = state.tokens.find(t => tokenKey(t) === key);
+
+  const enriched = {
+    ...tokenData,
+    _source: source,
+    _firstSeen: existing ? existing._firstSeen : Date.now(),
+    _isCTO: state.ctoSet.has(key),
+    _isBoosted: !!state.boostMap[key],
+    _boostData: state.boostMap[key] || null,
+    _hasAd: state.adSet.has(key),
+    _score: computeScore(tokenData, state.boostMap[key], state.ctoSet.has(key)),
+  };
+
+  if (existing) {
+    const idx = state.tokens.indexOf(existing);
+    state.tokens[idx] = enriched;
+  } else {
+    state.tokens.unshift(enriched);
+    state.seenCount++;
+    el('stat-seen').textContent = state.seenCount;
+    if (state.tokens.length > 500) state.tokens.pop();
+    // Toast for new tokens
+    if (source !== 'init') {
+      showToast(`New profile: ${tokenData.chainId.toUpperCase()} · ${shortenAddr(tokenData.tokenAddress)}`, 'profile');
+    }
+  }
+
+  el('radar-badge').textContent = state.tokens.length;
+  if (state.currentScreen === 'radar') renderRadar();
+}
+
+function ingestBoost(boostData) {
+  if (!boostData || !boostData.tokenAddress) return;
+  const key = tokenKey(boostData);
+  state.boostMap[key] = boostData;
+
+  // Update existing token if present
+  const existing = state.tokens.find(t => tokenKey(t) === key);
+  if (existing) {
+    existing._isBoosted = true;
+    existing._boostData = boostData;
+    existing._score = computeScore(existing, boostData, existing._isCTO);
+    if (state.currentScreen === 'radar') renderRadar();
+  }
+
+  el('stat-boosts').textContent = Object.keys(state.boostMap).length;
+
+  showToast(`⚡ Boost: ${boostData.chainId?.toUpperCase()} · ${shortenAddr(boostData.tokenAddress)} (+${boostData.amount || '?'})`, 'boost');
+}
+
+function ingestCTO(ctoData) {
+  if (!ctoData || !ctoData.tokenAddress) return;
+  const key = tokenKey(ctoData);
+  state.ctoSet.add(key);
+  state.ctoCount++;
+  el('stat-ctos').textContent = state.ctoCount;
+
+  const existing = state.tokens.find(t => tokenKey(t) === key);
+  if (existing) {
+    existing._isCTO = true;
+    existing._score = computeScore(existing, existing._boostData, true);
+    if (state.currentScreen === 'radar') renderRadar();
+  }
+
+  showToast(`🔄 CTO: ${ctoData.chainId?.toUpperCase()} · ${shortenAddr(ctoData.tokenAddress)}`, 'cto');
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  SCORING ENGINE (0–100)
+// ═══════════════════════════════════════════════════════════════
+function computeScore(token, boostData, isCTO) {
+  let score = 0;
+  const links = token.links || [];
+
+  const hasTwitter = links.some(l => l.type === 'twitter');
+  const hasTelegram = links.some(l => l.type === 'telegram');
+  const hasWebsite = links.some(l => l.label === 'Website' || (!l.type && l.url));
+  const hasIcon = !!token.icon;
+  const hasBanner = !!token.header;
+  const hasDesc = token.description && token.description.trim().length > 30;
+  const descLen = token.description ? token.description.trim().length : 0;
+
+  // Social completeness: 20pts
+  if (hasTwitter) score += 7;
+  if (hasTelegram) score += 7;
+  if (hasWebsite) score += 6;
+
+  // Profile quality: 15pts
+  if (hasBanner) score += 7;
+  if (hasDesc) score += 5;
+  if (descLen > 100) score += 3;
+
+  // Has icon: 5pts
+  if (hasIcon) score += 5;
+
+  // Boost presence: 20pts
+  if (boostData) {
+    const amount = boostData.totalAmount || boostData.amount || 0;
+    if (amount > 0) score += 8;
+    if (amount > 100) score += 6;
+    if (amount > 500) score += 6;
+  }
+
+  // CTO: 10pts (community believes in revival)
+  if (isCTO) score += 10;
+
+  // Link count diversity: 5pts
+  const linkTypes = new Set(links.map(l => l.type || 'web'));
+  if (linkTypes.size >= 3) score += 5;
+  else if (linkTypes.size >= 2) score += 3;
+
+  // Penalize missing basics
+  if (!hasTwitter && !hasTelegram) score -= 5;
+
+  return Math.max(0, Math.min(100, Math.round(score)));
+}
+
+function scoreClass(score) {
+  if (score >= 80) return 'strong';
+  if (score >= 60) return 'watch';
+  if (score >= 40) return 'weak';
+  return 'avoid';
+}
+
+function verdictLabel(score) {
+  if (score >= 80) return 'STRONG';
+  if (score >= 60) return 'WATCH';
+  if (score >= 40) return 'WEAK';
+  return 'AVOID';
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  RENDER — RADAR
+// ═══════════════════════════════════════════════════════════════
+function getFilteredTokens() {
+  const f = state.filters;
+  return state.tokens.filter(t => {
+    if (f.chain !== 'all' && t.chainId !== f.chain) return false;
+    if (f.boosted && !t._isBoosted) return false;
+    if (f.hastwitter && !t.links?.some(l => l.type === 'twitter')) return false;
+    if (f.hassite && !t.links?.some(l => l.label === 'Website' || (!l.type && l.url))) return false;
+    if (f.cto && !t._isCTO) return false;
+    if (t._score < f.minScore) return false;
+    return true;
+  });
+}
+
+function renderRadar() {
+  const filtered = getFilteredTokens();
+  el('filtered-count').textContent = `${filtered.length} tokens`;
+
+  const grid = el('radar-grid');
+
+  if (filtered.length === 0) {
+    grid.innerHTML = `<div class="empty-state">
+      <div class="empty-icon">${state.tokens.length === 0 ? '📡' : '🔍'}</div>
+      <div class="empty-text">${state.tokens.length === 0 ? 'Waiting for new tokens...' : 'No tokens match current filters'}</div>
+    </div>`;
+    return;
+  }
+
+  // Build all cards
+  const fragment = document.createDocumentFragment();
+  filtered.forEach(token => {
+    const card = buildTokenCard(token);
+    fragment.appendChild(card);
+  });
+
+  grid.innerHTML = '';
+  grid.appendChild(fragment);
+}
+
+function buildTokenCard(token) {
+  const score = token._score || 0;
+  const sc = scoreClass(score);
+  const vl = verdictLabel(score);
+  const links = token.links || [];
+  const hasTwitter = links.some(l => l.type === 'twitter');
+  const hasTelegram = links.some(l => l.type === 'telegram');
+  const hasWebsite = links.some(l => l.label === 'Website' || (!l.type && l.url));
+  const age = timeAgo(token._firstSeen);
+
+  const div = document.createElement('div');
+  div.className = `token-card score-${sc}`;
+  div.onclick = () => openResearchPanel(token);
+
+  div.innerHTML = `
+    <div class="card-header">
+      ${token.icon
+        ? `<img class="token-icon" src="${token.icon}" onerror="this.style.display='none'" alt="">`
+        : `<div class="token-icon-placeholder">🪙</div>`}
+      <div class="token-meta">
+        <div class="token-name">${token.tokenAddress ? shortenName(token.tokenAddress) : 'Unknown'}</div>
+        <div class="token-addr">${shortenAddr(token.tokenAddress)}</div>
+      </div>
+      <div class="card-chain ${chainClass(token.chainId)}">${token.chainId?.toUpperCase() || '?'}</div>
+    </div>
+
+    ${token.description ? `<div class="card-desc">${escHtml(token.description)}</div>` : ''}
+
+    <div class="card-socials">
+      <div class="social-badge ${hasTwitter ? 'has' : ''}">🐦 TW</div>
+      <div class="social-badge ${hasTelegram ? 'has' : ''}">📱 TG</div>
+      <div class="social-badge ${hasWebsite ? 'has' : ''}">🌐 WEB</div>
+      ${token._isBoosted ? `<div class="social-badge boosted">⚡ BOOST</div>` : ''}
+      ${token._isCTO ? `<div class="social-badge cto">🔄 CTO</div>` : ''}
+      ${token.header ? `<div class="social-badge has">🖼 BANNER</div>` : ''}
+    </div>
+
+    <div class="card-score-row">
+      <div class="score-bar-track"><div class="score-bar-fill ${sc}" style="width:${score}%"></div></div>
+      <div class="score-num" style="color:var(--${sc === 'strong' ? 'green' : sc === 'watch' ? 'gold' : sc === 'weak' ? 'orange' : 'red'})">${score}</div>
+      <div class="score-verdict verdict-${sc}">${vl}</div>
+    </div>
+
+    <div class="card-footer">
+      <div class="card-age">🕐 ${age}</div>
+      ${token._boostData ? `<div style="font-size:10px;color:var(--gold)">⚡ ${token._boostData.totalAmount || token._boostData.amount || '?'} total boost</div>` : ''}
+    </div>
+  `;
+
+  return div;
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  RESEARCH PANEL
+// ═══════════════════════════════════════════════════════════════
+async function openResearchPanel(token) {
+  state.panelToken = token;
+  el('research-panel').classList.add('open');
+  el('panel-backdrop').classList.add('show');
+  el('panel-title').textContent = shortenAddr(token.tokenAddress);
+
+  const dexLink = el('panel-dex-link');
+  dexLink.href = token.url || `https://dexscreener.com/${token.chainId}/${token.tokenAddress}`;
+
+  updateWatchBtn();
+
+  // Show loading state
+  el('panel-body').innerHTML = `<div class="panel-loading"><div class="spinner"></div><div>Fetching market data...</div></div>`;
+
+  // Fetch pairs + orders in parallel
+  const [pairsData, ordersData] = await Promise.all([
+    apiGet(ENDPOINTS.tokenPairs(token.chainId, token.tokenAddress)),
+    apiGet(ENDPOINTS.orders(token.chainId, token.tokenAddress)),
+  ]);
+
+  renderPanel(token, pairsData, ordersData);
+}
+
+function closePanel() {
+  el('research-panel').classList.remove('open');
+  el('panel-backdrop').classList.remove('show');
+  state.panelToken = null;
+}
+
+function renderPanel(token, pairsData, ordersData) {
+  const pairs = pairsData || [];
+  // Use best pair (highest liquidity)
+  const pair = Array.isArray(pairs) ? pairs.sort((a, b) => (b.liquidity?.usd || 0) - (a.liquidity?.usd || 0))[0] : null;
+
+  const links = token.links || [];
+  const hasTwitter = links.some(l => l.type === 'twitter');
+  const hasTelegram = links.some(l => l.type === 'telegram');
+  const hasWebsite = links.some(l => l.label === 'Website' || (!l.type && l.url));
+  const twitterUrl = links.find(l => l.type === 'twitter')?.url;
+  const telegramUrl = links.find(l => l.type === 'telegram')?.url;
+  const websiteUrl = links.find(l => !l.type && l.url)?.url || links.find(l => l.label === 'Website')?.url;
+
+  const score = token._score || 0;
+  const sc = scoreClass(score);
+  const vl = verdictLabel(score);
+
+  // Build breakdown items for verdict
+  const breakdown = buildVerdict(token, pair, ordersData);
+
+  // Pressure data from pair
+  const txns = pair?.txns || {};
+  const vol = pair?.volume || {};
+  const priceChange = pair?.priceChange || {};
+  const liquidity = pair?.liquidity || {};
+  const timeframes = ['m5', 'h1', 'h6', 'h24'];
+
+  // Orders timeline
+  const orders = Array.isArray(ordersData) ? ordersData : [];
+
+  let html = `
+    <!-- HERO -->
+    <div class="token-hero">
+      ${token.header
+        ? `<img class="token-hero-banner" src="${token.header}" onerror="this.outerHTML='<div class=\'token-hero-banner-placeholder\'>No Banner</div>'" alt="">`
+        : `<div class="token-hero-banner-placeholder">NO BANNER</div>`}
+      <div class="token-hero-info">
+        ${token.icon ? `<img class="token-hero-icon" src="${token.icon}" alt="" onerror="this.style.display='none'">` : ''}
+        <div>
+          <div class="token-hero-name">${token.chainId?.toUpperCase() || ''}</div>
+          <div class="token-hero-addr">${token.tokenAddress}</div>
+          <div class="token-hero-links">
+            ${twitterUrl ? `<a class="hero-link twitter" href="${twitterUrl}" target="_blank">🐦 Twitter</a>` : ''}
+            ${telegramUrl ? `<a class="hero-link telegram" href="${telegramUrl}" target="_blank">📱 Telegram</a>` : ''}
+            ${websiteUrl ? `<a class="hero-link website" href="${websiteUrl}" target="_blank">🌐 Website</a>` : ''}
+            <a class="hero-link" href="${token.url || `https://dexscreener.com/${token.chainId}/${token.tokenAddress}`}" target="_blank">📊 DexScreener</a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- DESCRIPTION -->
+    ${token.description ? `<div class="desc-box">"${escHtml(token.description)}"</div>` : ''}
+
+    <!-- VERDICT -->
+    <div class="verdict-block ${sc}">
+      <div class="verdict-header">
+        <div>
+          <div class="verdict-title">Coin Intel Score</div>
+          <div class="verdict-label-big" style="color:var(--${sc === 'strong' ? 'green' : sc === 'watch' ? 'gold' : sc === 'weak' ? 'orange' : 'red'})">${vl}</div>
+        </div>
+        <div class="verdict-score-big ${sc}">${score}</div>
+      </div>
+      <div class="verdict-breakdown">
+        ${breakdown.map(b => `
+          <div class="vb-item">
+            <div class="vb-icon">${b.icon}</div>
+            <div class="vb-label">${b.label}</div>
+            <div class="vb-val">${b.val}</div>
+          </div>`).join('')}
+      </div>
+    </div>
+
+    <!-- DANGER CHECK -->
+    <div class="section-header"><span class="section-icon">🚨</span><span class="section-title">Danger Check</span></div>
+    <div class="danger-list">
+      ${buildDangerList(token, pair, orders).map(d => `
+        <div class="danger-item">
+          <div class="danger-icon">${d.icon}</div>
+          <div class="danger-text">${d.label}</div>
+          <div class="danger-status ${d.status}">${d.value}</div>
+        </div>`).join('')}
+    </div>
+
+    <!-- MARKET DATA -->
+    ${pair ? `
+    <div class="section-header"><span class="section-icon">📈</span><span class="section-title">Market Data</span></div>
+    <div class="market-grid">
+      <div class="market-cell">
+        <div class="mc-label">Price USD</div>
+        <div class="mc-val">${pair.priceUsd ? '$' + formatNum(parseFloat(pair.priceUsd), 8) : '—'}</div>
+        <div class="mc-sub ${changeClass(priceChange.h1)}">1h: ${formatChange(priceChange.h1)}</div>
+      </div>
+      <div class="market-cell">
+        <div class="mc-label">Liquidity</div>
+        <div class="mc-val">${liquidity.usd ? '$' + formatK(liquidity.usd) : '—'}</div>
+        <div class="mc-sub">${liquidityRating(liquidity.usd)}</div>
+      </div>
+      <div class="market-cell">
+        <div class="mc-label">Volume 24h</div>
+        <div class="mc-val">${vol.h24 ? '$' + formatK(vol.h24) : '—'}</div>
+        <div class="mc-sub ${changeClass(priceChange.h24)}">24h: ${formatChange(priceChange.h24)}</div>
+      </div>
+      <div class="market-cell">
+        <div class="mc-label">FDV / MktCap</div>
+        <div class="mc-val">${pair.fdv ? '$' + formatK(pair.fdv) : '—'}</div>
+        <div class="mc-sub">${pair.marketCap ? '$' + formatK(pair.marketCap) + ' mcap' : '—'}</div>
+      </div>
+      <div class="market-cell">
+        <div class="mc-label">5m Price</div>
+        <div class="mc-val ${changeClass(priceChange.m5)}">${formatChange(priceChange.m5)}</div>
+        <div class="mc-sub">Vol: ${vol.m5 ? '$' + formatK(vol.m5) : '—'}</div>
+      </div>
+      <div class="market-cell">
+        <div class="mc-label">Pair Age</div>
+        <div class="mc-val">${pair.pairCreatedAt ? timeAgoFull(pair.pairCreatedAt) : '—'}</div>
+        <div class="mc-sub">${pair.dexId ? pair.dexId : ''}</div>
+      </div>
+    </div>
+
+    <!-- BUY/SELL PRESSURE -->
+    <div class="section-header"><span class="section-icon">⚖️</span><span class="section-title">Buy / Sell Pressure</span></div>
+    <div class="pressure-section">
+      ${timeframes.map(tf => {
+        const buys = txns[tf]?.buys || 0;
+        const sells = txns[tf]?.sells || 0;
+        const total = buys + sells;
+        const buyPct = total > 0 ? Math.round((buys / total) * 100) : 0;
+        return `
+        <div class="pressure-row">
+          <div class="pressure-tf">${tf}</div>
+          <div style="flex:1">
+            <div class="pressure-track">
+              <div class="pressure-buy-fill" style="width:${buyPct}%"></div>
+            </div>
+            <div class="pressure-labels">
+              <span class="pressure-buy-label">▲ ${buys} buys</span>
+              <span class="pressure-sell-label">▼ ${sells} sells</span>
+            </div>
+          </div>
+          <div class="pressure-pct ${buyPct > 55 ? 'change-pos' : buyPct < 45 ? 'change-neg' : 'change-neu'}">${buyPct}%</div>
+        </div>`;
+      }).join('')}
+    </div>` : `<div style="padding:20px;text-align:center;color:var(--muted);font-size:11px">⚠ No trading pairs found yet — token may be too new</div>`}
+
+    <!-- PROMOTION TIMELINE -->
+    <div class="section-header"><span class="section-icon">📋</span><span class="section-title">Promotion Timeline</span></div>
+    <div class="timeline">
+      ${buildTimeline(token, orders, pair).map(item => `
+        <div class="tl-item">
+          <div class="tl-dot ${item.type}"></div>
+          <div class="tl-content">
+            <div class="tl-event">${item.event}</div>
+            ${item.amount ? `<div class="tl-amount">${item.amount}</div>` : ''}
+            <div class="tl-time">${item.time}</div>
+          </div>
+        </div>`).join('')}
+      ${buildTimeline(token, orders, pair).length === 0 ? `<div style="color:var(--muted);font-size:11px;padding:8px 0">No promotion activity recorded</div>` : ''}
+    </div>
+
+    <!-- CTO INFO -->
+    ${token._isCTO ? `
+    <div style="background:var(--green-dim);border:1px solid rgba(0,230,118,0.2);padding:12px;margin-bottom:16px;">
+      <div style="font-size:10px;color:var(--green);font-weight:600;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:4px">🔄 Community Takeover</div>
+      <div style="font-size:11px;color:var(--sub)">This token has been claimed by the community. A new team is attempting to revive it.</div>
+    </div>` : ''}
+
+    <hr class="rule">
+    <div style="font-size:10px;color:var(--muted);text-align:center;line-height:1.6">
+      Data via DexScreener API · For research only · Not financial advice<br>
+      <span id="panel-refresh-time">Last updated: ${new Date().toLocaleTimeString()}</span>
+    </div>
+  `;
+
+  el('panel-body').innerHTML = html;
+}
+
+function buildVerdict(token, pair, orders) {
+  const links = token.links || [];
+  const hasTwitter = links.some(l => l.type === 'twitter');
+  const hasTelegram = links.some(l => l.type === 'telegram');
+  const hasWebsite = links.some(l => l.label === 'Website' || (!l.type && l.url));
+  const liq = pair?.liquidity?.usd || 0;
+  const h1Buys = pair?.txns?.h1?.buys || 0;
+  const h1Sells = pair?.txns?.h1?.sells || 0;
+  const buyPct = (h1Buys + h1Sells) > 0 ? Math.round((h1Buys / (h1Buys + h1Sells)) * 100) : null;
+
+  return [
+    { icon: hasTwitter ? '✅' : '❌', label: 'Twitter', val: hasTwitter ? 'Present' : 'Missing' },
+    { icon: hasTelegram ? '✅' : '❌', label: 'Telegram', val: hasTelegram ? 'Present' : 'Missing' },
+    { icon: hasWebsite ? '✅' : '⚠️', label: 'Website', val: hasWebsite ? 'Present' : 'None' },
+    { icon: token.header ? '✅' : '⚠️', label: 'Banner', val: token.header ? 'Present' : 'None' },
+    { icon: liq > 5000 ? '✅' : liq > 0 ? '⚠️' : '❓', label: 'Liquidity', val: liq > 0 ? '$' + formatK(liq) : 'Unknown' },
+    { icon: buyPct !== null ? (buyPct > 55 ? '🟢' : buyPct < 45 ? '🔴' : '🟡') : '❓', label: 'Buy pressure 1h', val: buyPct !== null ? buyPct + '%' : 'No data' },
+    { icon: token._isBoosted ? '✅' : '◯', label: 'Boosted', val: token._isBoosted ? 'Yes' : 'No' },
+    { icon: token._isCTO ? '🔄' : '◯', label: 'CTO', val: token._isCTO ? 'Yes' : 'No' },
+  ];
+}
+
+function buildDangerList(token, pair, orders) {
+  const links = token.links || [];
+  const liq = pair?.liquidity?.usd || 0;
+  const age = pair?.pairCreatedAt;
+  const ageMinutes = age ? Math.round((Date.now() - age) / 60000) : null;
+  const firstBoost = orders?.find(o => o.type === 'tokenBoosts');
+  const boostMinutes = firstBoost?.paymentTimestamp ? Math.round((Date.now() - firstBoost.paymentTimestamp) / 60000) : null;
+  const h1Txns = (pair?.txns?.h1?.buys || 0) + (pair?.txns?.h1?.sells || 0);
+
+  const items = [
+    {
+      label: 'Has profile (name, description)',
+      icon: token.description?.trim().length > 10 ? '🟢' : '🔴',
+      value: token.description?.trim().length > 10 ? 'OK' : 'Empty / Missing',
+      status: token.description?.trim().length > 10 ? 'status-ok' : 'status-bad',
+    },
+    {
+      label: 'Social media presence',
+      icon: links.some(l => l.type === 'twitter') || links.some(l => l.type === 'telegram') ? '🟢' : '🔴',
+      value: [links.some(l=>l.type==='twitter')?'Twitter':'', links.some(l=>l.type==='telegram')?'TG':''].filter(Boolean).join(', ') || 'None',
+      status: links.some(l => l.type === 'twitter') ? 'status-ok' : 'status-bad',
+    },
+    {
+      label: 'Liquidity depth',
+      icon: liq > 20000 ? '🟢' : liq > 5000 ? '🟡' : liq > 0 ? '🔴' : '⚪',
+      value: liq > 0 ? '$' + formatK(liq) : 'Unknown',
+      status: liq > 20000 ? 'status-ok' : liq > 5000 ? 'status-warn' : 'status-bad',
+    },
+    {
+      label: 'Token age',
+      icon: ageMinutes === null ? '⚪' : ageMinutes < 5 ? '🟡' : '🟢',
+      value: ageMinutes !== null ? timeAgoFull(pair.pairCreatedAt) : 'Unknown',
+      status: ageMinutes !== null && ageMinutes < 2 ? 'status-warn' : 'status-ok',
+    },
+    {
+      label: 'Boost timing (not instant pump)',
+      icon: boostMinutes === null ? '⚪' : boostMinutes < 5 ? '🟡' : '🟢',
+      value: boostMinutes !== null ? (boostMinutes < 5 ? '⚠ Boosted immediately' : `After ${boostMinutes}m`) : 'Not boosted',
+      status: boostMinutes !== null && boostMinutes < 5 ? 'status-warn' : 'status-ok',
+    },
+    {
+      label: 'Transaction activity (1h)',
+      icon: h1Txns > 20 ? '🟢' : h1Txns > 5 ? '🟡' : h1Txns > 0 ? '🔴' : '⚪',
+      value: h1Txns > 0 ? `${h1Txns} txns` : 'No data',
+      status: h1Txns > 20 ? 'status-ok' : h1Txns > 5 ? 'status-warn' : 'status-bad',
+    },
+  ];
+
+  return items;
+}
+
+function buildTimeline(token, orders, pair) {
+  const items = [];
+
+  if (token._firstSeen) {
+    items.push({ type: 'profile', event: 'Profile created on DexScreener', time: new Date(token._firstSeen).toLocaleString() });
+  }
+
+  if (pair?.pairCreatedAt) {
+    items.push({ type: 'profile', event: 'Trading pair created', time: new Date(pair.pairCreatedAt).toLocaleString() });
+  }
+
+  if (Array.isArray(orders)) {
+    orders.forEach(o => {
+      const ts = o.paymentTimestamp || o.createdAt;
+      if (o.type === 'tokenBoosts') {
+        items.push({ type: 'boost', event: 'Boost purchased', amount: o.amount ? `+${o.amount} boost credits` : '', time: ts ? new Date(ts).toLocaleString() : 'Unknown time' });
+      } else if (o.type === 'ads') {
+        items.push({ type: 'ad', event: 'Ad placement purchased', amount: o.durationHours ? `${o.durationHours}h duration` : '', time: ts ? new Date(ts).toLocaleString() : 'Unknown time' });
+      } else if (o.type === 'tokenProfiles') {
+        items.push({ type: 'profile', event: 'Profile order', amount: '', time: ts ? new Date(ts).toLocaleString() : 'Unknown time' });
+      }
+    });
+  }
+
+  if (token._isCTO) {
+    items.push({ type: 'cto', event: '🔄 Community Takeover claimed', time: 'Recent' });
+  }
+
+  return items.sort((a, b) => new Date(a.time) - new Date(b.time));
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  BOOSTS SCREEN
+// ═══════════════════════════════════════════════════════════════
+async function loadBoostsScreen() {
+  const data = await apiGet(ENDPOINTS.boostsTop);
+  if (!data) return;
+  state.boostsTopData = Array.isArray(data) ? data : [];
+  renderBoosts();
+}
+
+function renderBoosts() {
+  const data = state.boostsTopData;
+  if (!data.length) return;
+
+  const maxAmount = Math.max(...data.map(b => b.totalAmount || 0));
+
+  const tbody = el('boosts-tbody');
+  tbody.innerHTML = data.map((b, i) => {
+    const pct = maxAmount > 0 ? ((b.totalAmount || 0) / maxAmount * 100) : 0;
+    const key = tokenKey(b);
+    const token = state.tokens.find(t => tokenKey(t) === key);
+    const score = token ? token._score : computeScore(b, b, false);
+    const sc = scoreClass(score);
+
+    return `<tr onclick="openResearchPanel(${JSON.stringify({chainId: b.chainId, tokenAddress: b.tokenAddress, icon: b.icon, links: b.links, description: b.description, header: b.header, url: b.url, _firstSeen: Date.now(), _isBoosted: true, _boostData: b, _isCTO: false, _score: score}).replace(/"/g, '&quot;')})">
+      <td style="color:var(--muted)">${i+1}</td>
+      <td>
+        <div class="boost-token-cell">
+          ${b.icon ? `<img class="boost-icon" src="${b.icon}" onerror="this.style.display='none'" alt="">` : '<div class="boost-icon" style="background:var(--bg4);display:flex;align-items:center;justify-content:center;font-size:12px">🪙</div>'}
+          <div>
+            <div class="boost-name">${shortenAddr(b.tokenAddress)}</div>
+            <div class="boost-addr">${b.chainId?.toUpperCase()}</div>
+          </div>
+        </div>
+      </td>
+      <td><span class="card-chain ${chainClass(b.chainId)}" style="padding:2px 6px;font-size:9px">${b.chainId?.toUpperCase()}</span></td>
+      <td>
+        <div class="boost-amount-bar">
+          <div class="boost-amount-fill" style="width:${pct}%"></div>
+          <div class="boost-amount-text">${b.amount || 0}</div>
+        </div>
+      </td>
+      <td style="color:var(--gold);font-weight:500">${b.totalAmount || 0}</td>
+      <td><span class="score-verdict verdict-${sc}">${verdictLabel(score)}</span></td>
+      <td><span style="font-size:16px;cursor:pointer" onclick="event.stopPropagation();openResearchPanel(${JSON.stringify({chainId: b.chainId, tokenAddress: b.tokenAddress, icon: b.icon, links: b.links, description: b.description, header: b.header, url: b.url, _firstSeen: Date.now(), _isBoosted: true, _boostData: b, _isCTO: false, _score: score}).replace(/"/g, '&quot;')})">↗</span></td>
+    </tr>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  META SCREEN
+// ═══════════════════════════════════════════════════════════════
+async function loadMetaScreen() {
+  const data = await apiGet(ENDPOINTS.metaTrending);
+  if (!data) return;
+  state.metaData = Array.isArray(data) ? data : [];
+  renderMeta();
+}
+
+function renderMeta() {
+  const grid = el('meta-grid');
+  if (!state.metaData.length) {
+    grid.innerHTML = `<div style="color:var(--muted);padding:40px;text-align:center">No meta data available</div>`;
+    return;
+  }
+
+  const sorted = [...state.metaData].sort((a, b) => (b.marketCapChange?.h1 || 0) - (a.marketCapChange?.h1 || 0));
+
+  grid.innerHTML = sorted.map(meta => {
+    const h1Change = meta.marketCapChange?.h1 || 0;
+    const momentum = ['m5', 'h1', 'h6', 'h24'].map(tf => {
+      const val = meta.marketCapChange?.[tf] || 0;
+      return `<div class="momentum-cell">
+        <span class="momentum-tf">${tf}</span>
+        <span class="momentum-val ${val > 0 ? 'change-pos' : val < 0 ? 'change-neg' : 'change-neu'}">${val > 0 ? '+' : ''}${val.toFixed(1)}%</span>
+      </div>`;
+    }).join('');
+
+    const iconVal = meta.icon?.value || '🔥';
+    const isEmoji = meta.icon?.type === 'emoji';
+
+    return `<div class="meta-card">
+      <div class="meta-card-header">
+        <div class="meta-icon">${isEmoji ? iconVal : '🔥'}</div>
+        <div>
+          <div class="meta-name">${meta.name || meta.slug}</div>
+          <div class="meta-count">${meta.tokenCount || 0} tokens</div>
+        </div>
+        <div style="margin-left:auto;font-size:13px;font-weight:700;color:${h1Change > 0 ? 'var(--green)' : h1Change < 0 ? 'var(--red)' : 'var(--muted)'}">${h1Change > 0 ? '+' : ''}${h1Change.toFixed(1)}%</div>
+      </div>
+      <div class="meta-stats">
+        <div class="meta-stat"><span class="meta-stat-label">Mkt Cap </span><span class="meta-stat-val">$${formatK(meta.marketCap || 0)}</span></div>
+        <div class="meta-stat"><span class="meta-stat-label">Volume </span><span class="meta-stat-val">$${formatK(meta.volume || 0)}</span></div>
+        <div class="meta-stat"><span class="meta-stat-label">Liquidity </span><span class="meta-stat-val">$${formatK(meta.liquidity || 0)}</span></div>
+      </div>
+      <div class="meta-momentum">${momentum}</div>
+    </div>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  WATCHLIST
+// ═══════════════════════════════════════════════════════════════
+function toggleWatch(token) {
+  const key = tokenKey(token);
+  const idx = state.watchlist.findIndex(w => tokenKey(w) === key);
+  if (idx >= 0) {
+    state.watchlist.splice(idx, 1);
+  } else {
+    state.watchlist.unshift({ ...token, addedAt: Date.now() });
+  }
+  saveWatchlist();
+  updateWlBadge();
+  renderWatchlist();
+  if (state.panelToken) updateWatchBtn();
+}
+
+function isWatching(token) {
+  return !!state.watchlist.find(w => tokenKey(w) === tokenKey(token));
+}
+
+function updateWatchBtn() {
+  const btn = el('panel-watch-btn');
+  if (!state.panelToken) return;
+  if (isWatching(state.panelToken)) {
+    btn.textContent = '★ Watching';
+    btn.className = 'watch-btn watching';
+  } else {
+    btn.textContent = '+ Watch';
+    btn.className = 'watch-btn';
+  }
+}
+
+function toggleWatchFromPanel() {
+  if (state.panelToken) toggleWatch(state.panelToken);
+}
+
+function updateWlBadge() {
+  const badge = el('wl-badge');
+  const count = state.watchlist.length;
+  badge.textContent = count;
+  badge.style.display = count > 0 ? 'block' : 'none';
+}
+
+function renderWatchlist() {
+  const grid = el('watchlist-grid');
+  const empty = el('watchlist-empty');
+
+  if (state.watchlist.length === 0) {
+    grid.innerHTML = '';
+    empty.style.display = 'flex';
+    return;
+  }
+
+  empty.style.display = 'none';
+  grid.innerHTML = state.watchlist.map(token => {
+    const score = token._score || computeScore(token, token._boostData, token._isCTO);
+    const sc = scoreClass(score);
+    const links = token.links || [];
+    const hasTwitter = links.some(l => l.type === 'twitter');
+    const hasTelegram = links.some(l => l.type === 'telegram');
+
+    return `<div class="wl-card">
+      <div class="wl-card-header">
+        ${token.icon ? `<img class="token-icon" src="${token.icon}" onerror="this.style.display='none'" alt="">` : '<div class="token-icon-placeholder">🪙</div>'}
+        <div>
+          <div class="token-name">${shortenAddr(token.tokenAddress)}</div>
+          <div class="token-addr">${token.chainId?.toUpperCase()}</div>
+        </div>
+        <button class="wl-remove" onclick="toggleWatch(${JSON.stringify(token).replace(/"/g,'&quot;')})">✕</button>
+      </div>
+      <div class="card-socials">
+        <div class="social-badge ${hasTwitter ? 'has' : ''}">🐦 TW</div>
+        <div class="social-badge ${hasTelegram ? 'has' : ''}">📱 TG</div>
+        ${token._isBoosted ? '<div class="social-badge boosted">⚡ BOOST</div>' : ''}
+      </div>
+      <div class="card-score-row" style="margin-top:8px">
+        <div class="score-bar-track"><div class="score-bar-fill ${sc}" style="width:${score}%"></div></div>
+        <div class="score-num" style="color:var(--${sc === 'strong' ? 'green' : sc === 'watch' ? 'gold' : sc === 'weak' ? 'orange' : 'red'})">${score}</div>
+        <div class="score-verdict verdict-${sc}">${verdictLabel(score)}</div>
+      </div>
+      <div class="wl-since">Pinned ${timeAgo(token.addedAt)}</div>
+      <div style="margin-top:10px;display:flex;gap:6px">
+        <button class="btn btn-sm" onclick="openResearchPanel(${JSON.stringify(token).replace(/"/g,'&quot;')})">Research</button>
+        <a class="btn btn-sm" href="${token.url || `https://dexscreener.com/${token.chainId}/${token.tokenAddress}`}" target="_blank" style="text-decoration:none">↗ DEX</a>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  NAVIGATION & FILTERS
+// ═══════════════════════════════════════════════════════════════
+const SCREEN_CONFIG = {
+  radar:     { title: 'Live Radar',      sub: 'Real-time new token profile stream',          filterbar: true },
+  boosts:    { title: 'Boost Tracker',   sub: 'Tokens with active boost spend — ranked',     filterbar: false },
+  meta:      { title: 'Meta Pulse',      sub: 'Trending narratives and sector momentum',      filterbar: false },
+  watchlist: { title: 'Watchlist',       sub: 'Your pinned tokens for tracking',              filterbar: false },
+};
+
+function switchScreen(name) {
+  state.currentScreen = name;
+
+  // Update nav
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  el(`nav-${name}`)?.classList.add('active');
+
+  // Update screens
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  el(`screen-${name}`)?.classList.add('active');
+
+  // Update topbar
+  const cfg = SCREEN_CONFIG[name] || {};
+  el('screen-title').textContent = cfg.title || name;
+  el('screen-sub').textContent = cfg.sub || '';
+  el('filterbar').style.display = cfg.filterbar ? 'flex' : 'none';
+
+  // Load screen data
+  if (name === 'boosts') loadBoostsScreen();
+  if (name === 'meta') loadMetaScreen();
+  if (name === 'radar') renderRadar();
+  if (name === 'watchlist') renderWatchlist();
+}
+
+function setChainFilter(chain, el_) {
+  document.querySelectorAll('#filterbar .filter-chip').forEach(c => {
+    if (['all','solana','bsc','base','ethereum'].some(ch => c.textContent.toLowerCase().includes(ch))) {
+      c.classList.remove('active');
+    }
+  });
+  el_.classList.add('active');
+  state.filters.chain = chain;
+  applyFilters();
+}
+
+function toggleFilter(name, el_) {
+  state.filters[name] = !state.filters[name];
+  el_.classList.toggle('active');
+  applyFilters();
+}
+
+function applyFilters() {
+  state.filters.minScore = parseInt(el('filter-score').value) || 0;
+  renderRadar();
+}
+
+function handleRefresh() {
+  const btn = el('refresh-btn');
+  btn.classList.add('spinning');
+  setTimeout(() => btn.classList.remove('spinning'), 600);
+
+  if (state.currentScreen === 'boosts') loadBoostsScreen();
+  else if (state.currentScreen === 'meta') loadMetaScreen();
+  else renderRadar();
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  TOAST
+// ═══════════════════════════════════════════════════════════════
+function showToast(msg, type = 'profile') {
+  const container = el('toast-container');
+  const toast = document.createElement('div');
+  toast.className = `toast ${type}`;
+  toast.textContent = msg;
+  container.appendChild(toast);
+  setTimeout(() => { toast.style.opacity = '0'; toast.style.transition = 'opacity 0.3s'; setTimeout(() => toast.remove(), 300); }, 4000);
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  UTILS
+// ═══════════════════════════════════════════════════════════════
+function el(id) { return document.getElementById(id); }
+
+function shortenAddr(addr) {
+  if (!addr) return '—';
+  if (addr.length <= 12) return addr;
+  return addr.slice(0, 6) + '...' + addr.slice(-4);
+}
+
+function shortenName(addr) {
+  if (!addr) return 'Unknown';
+  return addr.slice(0, 8) + '...';
+}
+
+function chainClass(chainId) {
+  const map = { solana: 'chain-solana', bsc: 'chain-bsc', base: 'chain-base', ethereum: 'chain-ethereum' };
+  return map[chainId] || 'chain-default';
+}
+
+function timeAgo(ts) {
+  if (!ts) return '—';
+  const diff = Math.round((Date.now() - ts) / 1000);
+  if (diff < 60) return `${diff}s ago`;
+  if (diff < 3600) return `${Math.round(diff/60)}m ago`;
+  if (diff < 86400) return `${Math.round(diff/3600)}h ago`;
+  return `${Math.round(diff/86400)}d ago`;
+}
+
+function timeAgoFull(ts) {
+  if (!ts) return '—';
+  const diff = Math.round((Date.now() - ts) / 1000);
+  if (diff < 60) return `${diff} seconds old`;
+  if (diff < 3600) return `${Math.round(diff/60)} minutes old`;
+  if (diff < 86400) return `${Math.round(diff/3600)} hours old`;
+  return `${Math.round(diff/86400)} days old`;
+}
+
+function formatNum(n, decimals = 2) {
+  if (n === undefined || n === null) return '—';
+  if (n < 0.000001) return n.toExponential(2);
+  if (n < 0.01) return n.toFixed(6);
+  if (n < 1) return n.toFixed(4);
+  return n.toFixed(decimals);
+}
+
+function formatK(n) {
+  if (!n) return '0';
+  if (n >= 1e9) return (n/1e9).toFixed(2) + 'B';
+  if (n >= 1e6) return (n/1e6).toFixed(2) + 'M';
+  if (n >= 1e3) return (n/1e3).toFixed(1) + 'K';
+  return Math.round(n).toString();
+}
+
+function formatChange(n) {
+  if (n === undefined || n === null) return '—';
+  return (n > 0 ? '+' : '') + n.toFixed(2) + '%';
+}
+
+function changeClass(n) {
+  if (n === undefined || n === null) return 'change-neu';
+  return n > 0 ? 'change-pos' : n < 0 ? 'change-neg' : 'change-neu';
+}
+
+function liquidityRating(liq) {
+  if (!liq) return '—';
+  if (liq > 100000) return '✅ Strong';
+  if (liq > 50000) return '✅ Healthy';
+  if (liq > 20000) return '🟡 Moderate';
+  if (liq > 5000) return '⚠️ Low';
+  return '🔴 Very Low';
+}
+
+function escHtml(str) {
+  if (!str) return '';
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════════════════════
+function init() {
+  loadWatchlist();
+
+  // Connect WebSocket: New Profiles
+  connectWS('profiles', ENDPOINTS.wsProfiles, (token) => {
+    ingestToken(token, 'profile');
+  });
+
+  // Connect WebSocket: Boosts
+  connectWS('boosts', ENDPOINTS.wsBoosts, (boost) => {
+    ingestBoost(boost);
+    // Also ingest as token if not seen
+    if (boost.tokenAddress) ingestToken({ chainId: boost.chainId, tokenAddress: boost.tokenAddress, icon: boost.icon, header: boost.header, description: boost.description, links: boost.links, url: boost.url }, 'boost');
+  });
+
+  // Connect WebSocket: CTOs
+  connectWS('ctos', ENDPOINTS.wsCTO, (cto) => {
+    ingestCTO(cto);
+    if (cto.tokenAddress) ingestToken({ ...cto }, 'cto');
+  });
+
+  // Connect WebSocket: Recent updates
+  connectWS('updates', ENDPOINTS.wsUpdates, (token) => {
+    ingestToken(token, 'update');
+  });
+
+  // Update connecting message
+  setTimeout(() => {
+    const msg = el('connecting-msg');
+    if (msg) msg.textContent = 'Waiting for new tokens... (streams are live)';
+  }, 3000);
+
+  // Auto-refresh meta & boosts every 2 minutes
+  setInterval(() => {
+    if (state.currentScreen === 'meta') loadMetaScreen();
+    if (state.currentScreen === 'boosts') loadBoostsScreen();
+  }, 120000);
+}
+
+// Start
+init();
+</script>
+</body>
+</html>
