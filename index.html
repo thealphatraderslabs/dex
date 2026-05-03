@@ -331,6 +331,29 @@ select.filter-select:focus { border-color: var(--border2); }
 .rh-col.right  { text-align: right; }
 .rh-col.center { text-align: center; }
 
+.rh-col.sortable {
+  cursor: pointer;
+  user-select: none;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  transition: color 0.15s;
+}
+.rh-col.sortable:hover { color: var(--text); }
+.rh-col.sortable.active { color: var(--green); }
+.rh-col.sortable.right { justify-content: flex-end; }
+
+.sort-arrow {
+  font-size: 8px;
+  opacity: 0.4;
+  transition: opacity 0.15s, transform 0.15s;
+  line-height: 1;
+}
+.rh-col.sortable.active .sort-arrow {
+  opacity: 1;
+  color: var(--green);
+}
+
 /* Token row */
 @keyframes slideIn {
   from { opacity: 0; transform: translateX(-6px); }
@@ -1480,6 +1503,7 @@ let state = {
   _ready: false,        // suppress toasts during initial WS burst
   _readyAt: 0,          // ms timestamp after which toasts are allowed
   nameCache: {},        // key=chain:addr → {name, symbol}
+  sort: { by: 'age', dir: 'desc' }, // 'score' | 'age', 'asc' | 'desc'
 };
 
 // Load watchlist from localStorage
@@ -1768,7 +1792,7 @@ function verdictLabel(score) {
 // ═══════════════════════════════════════════════════════════════
 function getFilteredTokens() {
   const f = state.filters;
-  return state.tokens.filter(t => {
+  const filtered = state.tokens.filter(t => {
     if (f.chain !== 'all' && t.chainId !== f.chain) return false;
     if (f.boosted && !t._isBoosted) return false;
     if (f.hastwitter && !t.links?.some(l => l.type === 'twitter')) return false;
@@ -1776,6 +1800,49 @@ function getFilteredTokens() {
     if (f.cto && !t._isCTO) return false;
     if (t._score < f.minScore) return false;
     return true;
+  });
+
+  const { by, dir } = state.sort;
+  filtered.sort((a, b) => {
+    let av, bv;
+    if (by === 'score') {
+      av = a._score || 0;
+      bv = b._score || 0;
+    } else { // age — lower _firstSeen = older
+      av = a._firstSeen || 0;
+      bv = b._firstSeen || 0;
+    }
+    return dir === 'desc' ? bv - av : av - bv;
+  });
+
+  return filtered;
+}
+
+function setSort(by) {
+  if (state.sort.by === by) {
+    // Toggle direction
+    state.sort.dir = state.sort.dir === 'desc' ? 'asc' : 'desc';
+  } else {
+    state.sort.by = by;
+    state.sort.dir = 'desc';
+  }
+  _updateSortHeaders();
+  renderRadar();
+}
+
+function _updateSortHeaders() {
+  const { by, dir } = state.sort;
+  ['score', 'age'].forEach(col => {
+    const el_ = document.getElementById(`sort-${col}`);
+    if (!el_) return;
+    const arrow = el_.querySelector('.sort-arrow');
+    if (by === col) {
+      el_.classList.add('active');
+      if (arrow) arrow.textContent = dir === 'desc' ? '▼' : '▲';
+    } else {
+      el_.classList.remove('active');
+      if (arrow) arrow.textContent = '▼';
+    }
   });
 }
 
@@ -1805,16 +1872,24 @@ function _doRenderRadar() {
 
   // ── Ensure sticky header exists ──────────────────────────────
   if (!grid.querySelector('.radar-header-row')) {
-    grid.innerHTML = `
-      <div class="radar-header-row">
-        <div class="rh-col"></div>
-        <div class="rh-col">Token / Contract</div>
-        <div class="rh-col">Chain</div>
-        <div class="rh-col center">Socials</div>
-        <div class="rh-col">Score</div>
-        <div class="rh-col right">Verdict</div>
-        <div class="rh-col right">Age</div>
-      </div>`;
+    const hdr = document.createElement('div');
+    hdr.className = 'radar-header-row';
+    hdr.innerHTML = `
+      <div class="rh-col"></div>
+      <div class="rh-col">Token / Contract</div>
+      <div class="rh-col">Chain</div>
+      <div class="rh-col center">Socials</div>
+      <div class="rh-col sortable" id="sort-score" onclick="setSort('score')" title="Sort by score">
+        Score <span class="sort-arrow">▼</span>
+      </div>
+      <div class="rh-col right">Verdict</div>
+      <div class="rh-col sortable right" id="sort-age" onclick="setSort('age')" title="Sort by age">
+        Age <span class="sort-arrow">▼</span>
+      </div>
+    `;
+    grid.innerHTML = '';
+    grid.appendChild(hdr);
+    _updateSortHeaders();
   }
 
   // ── Build key→row map of what's currently in the DOM ────────
