@@ -296,82 +296,98 @@ select.filter-select:focus { border-color: var(--border2); }
   flex-direction: column;
 }
 
+/* ── Radar list layout ───────────────────────────────────── */
 .radar-grid {
   flex: 1;
   overflow-y: auto;
-  padding: 16px 20px;
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
-  gap: 10px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
   align-content: start;
 }
 
-/* Token card */
-.token-card {
-  background: var(--bg2);
-  border: 1px solid var(--border);
-  padding: 14px;
-  cursor: pointer;
-  transition: all 0.2s;
-  position: relative;
-  overflow: hidden;
-  animation: slideIn 0.3s ease;
-}
-
-@keyframes slideIn {
-  from { opacity: 0; transform: translateY(-8px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-.token-card::before {
-  content: '';
-  position: absolute;
-  top: 0; left: 0; right: 0;
-  height: 2px;
-  background: var(--border);
-  transition: background 0.2s;
-}
-
-.token-card.score-strong::before { background: var(--green); }
-.token-card.score-watch::before { background: var(--gold); }
-.token-card.score-weak::before { background: var(--orange); }
-.token-card.score-avoid::before { background: var(--red); }
-
-.token-card:hover { background: var(--bg3); border-color: var(--border2); transform: translateY(-1px); }
-
-.card-header {
-  display: flex;
+/* Column header row */
+.radar-header-row {
+  display: grid;
+  grid-template-columns: 36px 1fr 80px 90px 120px 70px 60px;
+  gap: 0 12px;
   align-items: center;
-  gap: 10px;
-  margin-bottom: 10px;
-}
-
-.token-icon {
-  width: 36px; height: 36px;
-  border-radius: 0;
-  background: var(--bg4);
-  border: 1px solid var(--border);
-  object-fit: cover;
+  padding: 7px 20px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border2);
+  position: sticky;
+  top: 0;
+  z-index: 2;
   flex-shrink: 0;
 }
 
+.rh-col {
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 600;
+}
+.rh-col.right { text-align: right; }
+.rh-col.center { text-align: center; }
+
+/* Token row */
+@keyframes slideIn {
+  from { opacity: 0; transform: translateX(-6px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+.token-card {
+  display: grid;
+  grid-template-columns: 36px 1fr 80px 90px 120px 70px 60px;
+  gap: 0 12px;
+  align-items: center;
+  padding: 0 20px;
+  height: 52px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--border);
+  border-left: 3px solid transparent;
+  transition: background 0.12s, border-left-color 0.12s;
+  position: relative;
+  animation: slideIn 0.25s ease;
+  background: var(--bg2);
+  flex-shrink: 0;
+}
+
+.token-card:hover { background: var(--bg3); }
+.token-card.score-strong { border-left-color: var(--green); }
+.token-card.score-watch  { border-left-color: var(--gold); }
+.token-card.score-weak   { border-left-color: var(--orange); }
+.token-card.score-avoid  { border-left-color: var(--red); }
+
+/* Icon cell */
+.token-icon {
+  width: 32px; height: 32px;
+  border-radius: 2px;
+  object-fit: cover;
+  background: var(--bg4);
+  border: 1px solid var(--border);
+  display: block;
+}
+
 .token-icon-placeholder {
-  width: 36px; height: 36px;
+  width: 32px; height: 32px;
   background: var(--bg4);
   border: 1px solid var(--border);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 16px;
-  flex-shrink: 0;
+  font-size: 14px;
+  border-radius: 2px;
 }
 
-.token-meta { flex: 1; min-width: 0; }
+/* Identity cell */
+.token-meta { min-width: 0; }
 
 .token-name {
-  font-family: 'Syne', sans-serif;
-  font-weight: 700;
-  font-size: 13px;
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 600;
+  font-size: 12px;
   color: var(--text);
   white-space: nowrap;
   overflow: hidden;
@@ -381,113 +397,116 @@ select.filter-select:focus { border-color: var(--border2); }
 .token-addr {
   font-size: 10px;
   color: var(--muted);
-  font-weight: 300;
   margin-top: 1px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
+/* Chain badge */
 .card-chain {
-  padding: 3px 7px;
+  padding: 2px 6px;
   font-size: 9px;
-  font-weight: 600;
-  letter-spacing: 0.08em;
+  font-weight: 700;
+  letter-spacing: 0.07em;
   text-transform: uppercase;
-  flex-shrink: 0;
+  display: inline-block;
+  text-align: center;
 }
 
-.chain-solana { background: rgba(153,69,255,0.15); color: #9945ff; border: 1px solid rgba(153,69,255,0.25); }
-.chain-bsc { background: rgba(240,185,11,0.12); color: #f0b90b; border: 1px solid rgba(240,185,11,0.2); }
-.chain-base { background: rgba(0,82,255,0.12); color: #0052ff; border: 1px solid rgba(0,82,255,0.2); }
-.chain-ethereum { background: rgba(98,126,234,0.12); color: #627eea; border: 1px solid rgba(98,126,234,0.2); }
-.chain-default { background: var(--teal-dim); color: var(--teal); border: 1px solid rgba(0,184,212,0.2); }
+.chain-solana   { background: rgba(153,69,255,0.15); color: #9945ff; border: 1px solid rgba(153,69,255,0.25); }
+.chain-bsc      { background: rgba(240,185,11,0.12);  color: #f0b90b; border: 1px solid rgba(240,185,11,0.2); }
+.chain-base     { background: rgba(0,82,255,0.12);    color: #0052ff; border: 1px solid rgba(0,82,255,0.2); }
+.chain-ethereum { background: rgba(98,126,234,0.12);  color: #627eea; border: 1px solid rgba(98,126,234,0.2); }
+.chain-default  { background: var(--teal-dim);        color: var(--teal); border: 1px solid rgba(0,184,212,0.2); }
 
-/* Social row */
+/* Socials cell */
 .card-socials {
   display: flex;
-  gap: 5px;
-  margin-bottom: 10px;
+  gap: 4px;
+  align-items: center;
+  flex-wrap: nowrap;
 }
 
 .social-badge {
-  padding: 2px 7px;
-  font-size: 9px;
-  letter-spacing: 0.05em;
+  width: 18px; height: 18px;
+  font-size: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   border: 1px solid var(--border);
-  color: var(--muted);
+  color: var(--bg4);
   background: var(--bg3);
+  border-radius: 2px;
+  flex-shrink: 0;
+  opacity: 0.35;
+  line-height: 1;
 }
 
-.social-badge.has { color: var(--green); border-color: rgba(0,230,118,0.2); background: var(--green-dim); }
-.social-badge.cto { color: var(--teal); border-color: rgba(0,184,212,0.25); background: var(--teal-dim); }
-.social-badge.boosted { color: var(--gold); border-color: rgba(255,213,79,0.25); background: var(--gold-dim); }
+.social-badge.has    { opacity: 1; color: var(--green);  border-color: rgba(0,230,118,0.35);   background: var(--green-dim); }
+.social-badge.cto    { opacity: 1; color: var(--teal);   border-color: rgba(0,184,212,0.35);   background: var(--teal-dim); }
+.social-badge.boosted{ opacity: 1; color: var(--gold);   border-color: rgba(255,213,79,0.35);  background: var(--gold-dim); }
 
-/* Score bar */
+/* Score cell */
 .card-score-row {
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin-bottom: 8px;
+  gap: 6px;
 }
 
 .score-bar-track {
   flex: 1;
   height: 3px;
   background: var(--bg4);
+  border-radius: 2px;
+  min-width: 30px;
 }
 
 .score-bar-fill {
   height: 100%;
+  border-radius: 2px;
   background: var(--muted);
   transition: width 0.5s ease;
 }
 
 .score-bar-fill.strong { background: var(--green); }
-.score-bar-fill.watch { background: var(--gold); }
-.score-bar-fill.weak { background: var(--orange); }
-.score-bar-fill.avoid { background: var(--red); }
+.score-bar-fill.watch  { background: var(--gold); }
+.score-bar-fill.weak   { background: var(--orange); }
+.score-bar-fill.avoid  { background: var(--red); }
 
 .score-num {
   font-family: 'Syne', sans-serif;
   font-weight: 700;
   font-size: 13px;
-  min-width: 30px;
+  min-width: 24px;
   text-align: right;
+  flex-shrink: 0;
 }
 
+/* Verdict pill */
 .score-verdict {
-  font-size: 9px;
-  font-weight: 600;
+  font-size: 8px;
+  font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  padding: 2px 6px;
+  padding: 2px 5px;
   border: 1px solid;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
-.verdict-strong { color: var(--green); border-color: rgba(0,230,118,0.3); background: var(--green-dim); }
-.verdict-watch { color: var(--gold); border-color: rgba(255,213,79,0.3); background: var(--gold-dim); }
-.verdict-weak { color: var(--orange); border-color: rgba(255,109,0,0.3); background: var(--orange-dim); }
-.verdict-avoid { color: var(--red); border-color: rgba(255,68,68,0.3); background: var(--red-dim); }
+.verdict-strong { color: var(--green);  border-color: rgba(0,230,118,0.3);  background: var(--green-dim); }
+.verdict-watch  { color: var(--gold);   border-color: rgba(255,213,79,0.3); background: var(--gold-dim); }
+.verdict-weak   { color: var(--orange); border-color: rgba(255,109,0,0.3);  background: var(--orange-dim); }
+.verdict-avoid  { color: var(--red);    border-color: rgba(255,68,68,0.3);  background: var(--red-dim); }
 
-.card-footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.card-age { font-size: 10px; color: var(--muted); }
-.card-desc {
-  font-size: 10px;
-  color: var(--sub);
-  line-height: 1.5;
-  margin-bottom: 8px;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
+/* Age cell */
+.card-age  { font-size: 10px; color: var(--muted); text-align: right; white-space: nowrap; }
+.card-desc { display: none; } /* hidden in list view */
+.card-footer { display: none; }
 
 /* Empty state */
 .empty-state {
-  grid-column: 1 / -1;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -495,6 +514,7 @@ select.filter-select:focus { border-color: var(--border2); }
   padding: 80px 20px;
   color: var(--muted);
   gap: 12px;
+  width: 100%;
 }
 
 .empty-icon { font-size: 32px; opacity: 0.4; }
@@ -1733,14 +1753,25 @@ function renderRadar() {
     return;
   }
 
-  // Build all cards
+  // Build header + all rows
+  grid.innerHTML = `
+    <div class="radar-header-row">
+      <div class="rh-col"></div>
+      <div class="rh-col">Token</div>
+      <div class="rh-col">Chain</div>
+      <div class="rh-col center">Socials</div>
+      <div class="rh-col">Score</div>
+      <div class="rh-col right">Verdict</div>
+      <div class="rh-col right">Age</div>
+    </div>
+  `;
+
   const fragment = document.createDocumentFragment();
   filtered.forEach(token => {
     const card = buildTokenCard(token);
     fragment.appendChild(card);
   });
 
-  grid.innerHTML = '';
   grid.appendChild(fragment);
 }
 
@@ -1758,39 +1789,44 @@ function buildTokenCard(token) {
   div.className = `token-card score-${sc}`;
   div.onclick = () => openResearchPanel(token);
 
+  const scoreColor = sc === 'strong' ? 'green' : sc === 'watch' ? 'gold' : sc === 'weak' ? 'orange' : 'red';
   div.innerHTML = `
-    <div class="card-header">
-      ${token.icon
-        ? `<img class="token-icon" src="${token.icon}" onerror="this.style.display='none'" alt="">`
-        : `<div class="token-icon-placeholder">🪙</div>`}
-      <div class="token-meta">
-        <div class="token-name">${token.tokenAddress ? shortenName(token.tokenAddress) : 'Unknown'}</div>
-        <div class="token-addr">${shortenAddr(token.tokenAddress)}</div>
-      </div>
-      <div class="card-chain ${chainClass(token.chainId)}">${token.chainId?.toUpperCase() || '?'}</div>
+    <!-- icon -->
+    ${token.icon
+      ? `<img class="token-icon" src="${token.icon}" onerror="this.outerHTML='<div class=\'token-icon-placeholder\'>🪙</div>'" alt="">`
+      : `<div class="token-icon-placeholder">🪙</div>`}
+
+    <!-- identity -->
+    <div class="token-meta">
+      <div class="token-name">${token.tokenAddress ? shortenName(token.tokenAddress) : 'Unknown'}</div>
+      <div class="token-addr">${shortenAddr(token.tokenAddress)}</div>
     </div>
 
-    ${token.description ? `<div class="card-desc">${escHtml(token.description)}</div>` : ''}
+    <!-- chain -->
+    <div class="card-chain ${chainClass(token.chainId)}">${token.chainId?.toUpperCase() || '?'}</div>
 
+    <!-- socials (icon-only dots) -->
     <div class="card-socials">
-      <div class="social-badge ${hasTwitter ? 'has' : ''}">🐦 TW</div>
-      <div class="social-badge ${hasTelegram ? 'has' : ''}">📱 TG</div>
-      <div class="social-badge ${hasWebsite ? 'has' : ''}">🌐 WEB</div>
-      ${token._isBoosted ? `<div class="social-badge boosted">⚡ BOOST</div>` : ''}
-      ${token._isCTO ? `<div class="social-badge cto">🔄 CTO</div>` : ''}
-      ${token.header ? `<div class="social-badge has">🖼 BANNER</div>` : ''}
+      <div class="social-badge ${hasTwitter ? 'has' : ''}" title="Twitter">𝕏</div>
+      <div class="social-badge ${hasTelegram ? 'has' : ''}" title="Telegram">✈</div>
+      <div class="social-badge ${hasWebsite ? 'has' : ''}" title="Website">🌐</div>
+      ${token._isBoosted ? `<div class="social-badge boosted" title="Boosted">⚡</div>` : ''}
+      ${token._isCTO ? `<div class="social-badge cto" title="CTO">🔄</div>` : ''}
     </div>
 
+    <!-- score bar -->
     <div class="card-score-row">
       <div class="score-bar-track"><div class="score-bar-fill ${sc}" style="width:${score}%"></div></div>
-      <div class="score-num" style="color:var(--${sc === 'strong' ? 'green' : sc === 'watch' ? 'gold' : sc === 'weak' ? 'orange' : 'red'})">${score}</div>
+      <div class="score-num" style="color:var(--${scoreColor})">${score}</div>
+    </div>
+
+    <!-- verdict pill -->
+    <div style="text-align:right">
       <div class="score-verdict verdict-${sc}">${vl}</div>
     </div>
 
-    <div class="card-footer">
-      <div class="card-age">🕐 ${age}</div>
-      ${token._boostData ? `<div style="font-size:10px;color:var(--gold)">⚡ ${token._boostData.totalAmount || token._boostData.amount || '?'} total boost</div>` : ''}
-    </div>
+    <!-- age -->
+    <div class="card-age">${age}</div>
   `;
 
   return div;
