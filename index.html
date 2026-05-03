@@ -1764,7 +1764,7 @@ function verdictLabel(score) {
 }
 
 // ═══════════════════════════════════════════════════════════════
-//  RENDER — RADAR
+//  RENDER — RADAR  (smart diff — no full rebuilds, no blinking)
 // ═══════════════════════════════════════════════════════════════
 function getFilteredTokens() {
   const f = state.filters;
@@ -1779,12 +1779,22 @@ function getFilteredTokens() {
   });
 }
 
+// Debounce renders — at most one render per animation frame
+let _renderPending = false;
 function renderRadar() {
+  if (_renderPending) return;
+  _renderPending = true;
+  requestAnimationFrame(_doRenderRadar);
+}
+
+function _doRenderRadar() {
+  _renderPending = false;
+
   const filtered = getFilteredTokens();
   el('filtered-count').textContent = `${filtered.length} tokens`;
-
   const grid = el('radar-grid');
 
+  // ── Empty state ──────────────────────────────────────────────
   if (filtered.length === 0) {
     grid.innerHTML = `<div class="empty-state">
       <div class="empty-icon">${state.tokens.length === 0 ? '📡' : '🔍'}</div>
@@ -1793,26 +1803,97 @@ function renderRadar() {
     return;
   }
 
-  // Build header + all rows
-  grid.innerHTML = `
-    <div class="radar-header-row">
-      <div class="rh-col"></div>
-      <div class="rh-col">Token / Contract</div>
-      <div class="rh-col">Chain</div>
-      <div class="rh-col center">Socials</div>
-      <div class="rh-col">Score</div>
-      <div class="rh-col right">Verdict</div>
-      <div class="rh-col right">Age</div>
-    </div>
-  `;
+  // ── Ensure sticky header exists ──────────────────────────────
+  if (!grid.querySelector('.radar-header-row')) {
+    grid.innerHTML = `
+      <div class="radar-header-row">
+        <div class="rh-col"></div>
+        <div class="rh-col">Token / Contract</div>
+        <div class="rh-col">Chain</div>
+        <div class="rh-col center">Socials</div>
+        <div class="rh-col">Score</div>
+        <div class="rh-col right">Verdict</div>
+        <div class="rh-col right">Age</div>
+      </div>`;
+  }
 
-  const fragment = document.createDocumentFragment();
-  filtered.forEach(token => {
-    const card = buildTokenCard(token);
-    fragment.appendChild(card);
+  // ── Build key→row map of what's currently in the DOM ────────
+  const existingRows = {};
+  grid.querySelectorAll('.token-card[data-key]').forEach(row => {
+    existingRows[row.dataset.key] = row;
   });
 
-  grid.appendChild(fragment);
+  // ── Diff: add new, update changed, remove stale ──────────────
+  const seenKeys = new Set();
+  const headerRow = grid.querySelector('.radar-header-row');
+
+  filtered.forEach((token, idx) => {
+    const key = tokenKey(token);
+    seenKeys.add(key);
+
+    if (existingRows[key]) {
+      // Row already exists — just patch the mutable cells in-place
+      _patchRow(existingRows[key], token);
+    } else {
+      // New row — build and insert after header
+      const row = buildTokenCard(token);
+      row.dataset.key = key;
+      // Insert at correct position (after header + idx existing rows)
+      const refNode = headerRow.nextSibling || null;
+      grid.insertBefore(row, refNode);
+      existingRows[key] = row; // register so subsequent inserts position correctly
+    }
+  });
+
+  // Remove rows no longer in filtered list
+  Object.keys(existingRows).forEach(key => {
+    if (!seenKeys.has(key)) existingRows[key].remove();
+  });
+
+  // Re-order rows to match filtered order (only if order changed)
+  const rows = [...grid.querySelectorAll('.token-card[data-key]')];
+  filtered.forEach((token, idx) => {
+    const desiredRow = existingRows[tokenKey(token)];
+    if (rows[idx] !== desiredRow) {
+      grid.insertBefore(desiredRow, rows[idx] || null);
+      rows.splice(idx, 0, desiredRow);
+    }
+  });
+}
+
+// Patch only the cells that can change without rebuilding the whole row
+function _patchRow(row, token) {
+  const score = token._score || 0;
+  const sc = scoreClass(score);
+  const scoreColor = sc === 'strong' ? 'green' : sc === 'watch' ? 'gold' : sc === 'weak' ? 'orange' : 'red';
+
+  // Score bar
+  const fill = row.querySelector('.score-bar-fill');
+  if (fill) { fill.style.width = score + '%'; fill.className = `score-bar-fill ${sc}`; }
+
+  // Score number
+  const num = row.querySelector('.score-num');
+  if (num) { num.textContent = score; num.style.color = `var(--${scoreColor})`; }
+
+  // Verdict pill
+  const verdict = row.querySelector('.score-verdict');
+  if (verdict) { verdict.textContent = verdictLabel(score); verdict.className = `score-verdict verdict-${sc}`; }
+
+  // Left border colour
+  row.className = `token-card score-${sc}`;
+
+  // Name (may arrive async from nameCache)
+  const cached = state.nameCache[tokenKey(token)];
+  const cachedName = cached && cached !== 'pending' ? (cached.name || cached.symbol) : null;
+  const displayName = token.name || token.symbol || cachedName || null;
+  const nameEl = row.querySelector('.token-name');
+  if (nameEl && displayName && nameEl.textContent !== displayName) {
+    nameEl.textContent = displayName;
+  }
+
+  // Age
+  const ageEl = row.querySelector('.card-age');
+  if (ageEl) ageEl.textContent = timeAgo(token._firstSeen);
 }
 
 function buildTokenCard(token) {
@@ -1832,6 +1913,7 @@ function buildTokenCard(token) {
 
   const div = document.createElement('div');
   div.className = `token-card score-${sc}`;
+  div.dataset.key = tokenKey(token);
   div.onclick = () => openResearchPanel(token);
 
   const scoreColor = sc === 'strong' ? 'green' : sc === 'watch' ? 'gold' : sc === 'weak' ? 'orange' : 'red';
@@ -2575,6 +2657,16 @@ function init() {
     const msg = el('connecting-msg');
     if (msg) msg.textContent = 'Waiting for new tokens... (streams are live)';
   }, 3000);
+
+  // Tick age column every 30s without full re-render
+  setInterval(() => {
+    if (state.currentScreen !== 'radar') return;
+    document.querySelectorAll('.token-card[data-key] .card-age').forEach(el => {
+      const key = el.closest('.token-card').dataset.key;
+      const token = state.tokens.find(t => tokenKey(t) === key);
+      if (token) el.textContent = timeAgo(token._firstSeen);
+    });
+  }, 30000);
 
   // Auto-refresh meta & boosts every 2 minutes
   setInterval(() => {
