@@ -1348,8 +1348,8 @@ hr.rule { border: none; border-top: 1px solid var(--border); margin: 14px 0; }
     <!-- TOP BAR -->
     <div id="topbar">
       <div>
-        <div class="topbar-title" id="screen-title">Live Radar</div>
-        <div class="topbar-sub" id="screen-sub">Real-time new token profile stream</div>
+        <div class="topbar-title" id="screen-title">New Launch Radar</div>
+        <div class="topbar-sub" id="screen-sub">New coins deployed in last 24h — old tokens auto-filtered out</div>
       </div>
       <div class="topbar-right">
         <div class="live-badge">
@@ -1617,11 +1617,20 @@ async function _runNameFetchQueue() {
 }
 
 // ═══════════════════════════════════════════════════════════════
-//  BACKGROUND PAIR-AGE FETCHER
-//  Fetches pairCreatedAt for every new token so we can show real
-//  on-chain age and separate new deployments from old tokens that
-//  just updated their DexScreener profile.
-//  Throttled: 1 fetch per 4s to protect rate limit headroom.
+//  NEW-LAUNCH THRESHOLD
+//  Pairs older than this are NOT new launches — drop from radar.
+// ═══════════════════════════════════════════════════════════════
+const MAX_PAIR_AGE_MS = 24 * 60 * 60 * 1000; // 24 hours
+
+// ═══════════════════════════════════════════════════════════════
+//  BACKGROUND PAIR-AGE + MARKET DATA FETCHER
+//  For every token the profile stream sends, we immediately fetch
+//  the pair data to:
+//    1. Check pairCreatedAt — if >24h old, REMOVE from radar
+//       (it's just an old token updating its profile, not a launch)
+//    2. Get name/symbol for display
+//    3. Re-score using real market data (liq, vol, txns, etc.)
+//  Throttled at 1 fetch per 2.5s to stay under rate limits.
 // ═══════════════════════════════════════════════════════════════
 let _ageFetchQueue = [];
 let _ageFetchRunning = false;
@@ -1637,27 +1646,40 @@ async function _runAgeFetchQueue() {
   while (_ageFetchQueue.length > 0) {
     const token = _ageFetchQueue.shift();
     const key = tokenKey(token);
-    if (token._pairCreatedAt !== undefined) continue;
+    if (token._pairCreatedAt !== undefined) { continue; }
     try {
       const data = await apiGet(ENDPOINTS.tokenPairs(token.chainId, token.tokenAddress), 8000);
       const pairs = Array.isArray(data) ? data : [];
       const best = pairs.sort((a,b) => (b.liquidity?.usd||0)-(a.liquidity?.usd||0))[0];
+      const pairCreatedAt = best?.pairCreatedAt || null;
 
+      // ── GATE: drop old tokens — they are NOT new launches ──
+      if (pairCreatedAt && (Date.now() - pairCreatedAt) > MAX_PAIR_AGE_MS) {
+        const idx = state.tokens.findIndex(t => tokenKey(t) === key);
+        if (idx !== -1) state.tokens.splice(idx, 1);
+        document.querySelector(`.token-card[data-key="${key}"]`)?.remove();
+        el('radar-badge').textContent = state.tokens.length;
+        const fc = el('filtered-count');
+        if (fc) fc.textContent = `${getFilteredTokens().length} tokens`;
+        await new Promise(r => setTimeout(r, 2500));
+        continue;
+      }
+
+      // ── PASS: store age + name + rescore with real market data
       const stored = state.tokens.find(t => tokenKey(t) === key);
       if (stored) {
-        stored._pairCreatedAt = best?.pairCreatedAt || null;
-        // Also grab name while we're here
+        stored._pairCreatedAt = pairCreatedAt;
         const name   = best?.baseToken?.name   || null;
         const symbol = best?.baseToken?.symbol || null;
         if (name && !stored.name)     stored.name   = name;
         if (symbol && !stored.symbol) stored.symbol = symbol;
         if (name || symbol) state.nameCache[key] = { name: name||'', symbol: symbol||'' };
-        // Patch DOM row in-place
+        if (best) rescoreWithPairData(stored, best);
         const row = document.querySelector(`.token-card[data-key="${key}"]`);
         if (row) _patchRow(row, stored);
       }
-    } catch(e) { /* silent */ }
-    await new Promise(r => setTimeout(r, 4000));
+    } catch(e) { /* silent — token stays with ⏳ age */ }
+    await new Promise(r => setTimeout(r, 2500));
   }
   _ageFetchRunning = false;
 }
@@ -2738,7 +2760,7 @@ function renderWatchlist() {
 //  NAVIGATION & FILTERS
 // ═══════════════════════════════════════════════════════════════
 const SCREEN_CONFIG = {
-  radar:     { title: 'Live Radar',      sub: 'Real-time new token profile stream',          filterbar: true },
+  radar:     { title: 'New Launch Radar', sub: 'New coins deployed in last 24h — old tokens auto-filtered out', filterbar: true },
   boosts:    { title: 'Boost Tracker',   sub: 'Tokens with active boost spend — ranked',     filterbar: false },
   meta:      { title: 'Meta Pulse',      sub: 'Trending narratives and sector momentum',      filterbar: false },
   watchlist: { title: 'Watchlist',       sub: 'Your pinned tokens for tracking',              filterbar: false },
