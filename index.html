@@ -1916,12 +1916,30 @@ function buildTokenCard(token) {
   div.dataset.key = tokenKey(token);
   div.onclick = () => openResearchPanel(token);
 
+  // Build icon element safely in JS — never trust onerror inside innerHTML
+  const isValidIconUrl = token.icon && (token.icon.startsWith('http://') || token.icon.startsWith('https://'));
+  const iconEl = document.createElement(isValidIconUrl ? 'img' : 'div');
+  if (isValidIconUrl) {
+    iconEl.className = 'token-icon';
+    iconEl.alt = '';
+    iconEl.src = token.icon;
+    iconEl.onerror = function() {
+      const placeholder = document.createElement('div');
+      placeholder.className = 'token-icon-placeholder';
+      placeholder.textContent = '🪙';
+      this.replaceWith(placeholder);
+    };
+  } else {
+    iconEl.className = 'token-icon-placeholder';
+    iconEl.textContent = '🪙';
+  }
+
   const scoreColor = sc === 'strong' ? 'green' : sc === 'watch' ? 'gold' : sc === 'weak' ? 'orange' : 'red';
+
+  // Build the rest as HTML (no dynamic JS inside — safe)
   div.innerHTML = `
-    <!-- icon -->
-    ${token.icon
-      ? `<img class="token-icon" src="${token.icon}" onerror="this.outerHTML='<div class=\'token-icon-placeholder\'>🪙</div>'" alt="">`
-      : `<div class="token-icon-placeholder">🪙</div>`}
+    <!-- icon slot -->
+    <span class="icon-slot"></span>
 
     <!-- identity: name on top, contract address below -->
     <div class="token-meta">
@@ -1955,6 +1973,9 @@ function buildTokenCard(token) {
     <!-- age -->
     <div class="card-age">${age}</div>
   `;
+
+  // Replace the icon slot with the safely-built element
+  div.querySelector('.icon-slot').replaceWith(iconEl);
 
   return div;
 }
@@ -2025,10 +2046,10 @@ function renderPanel(token, pairsData, ordersData) {
     <!-- HERO -->
     <div class="token-hero">
       ${token.header
-        ? `<img class="token-hero-banner" src="${token.header}" onerror="this.outerHTML='<div class=\'token-hero-banner-placeholder\'>No Banner</div>'" alt="">`
+        ? `<img class="token-hero-banner" src="${token.header}" onerror="this.style.display='none'" alt="">`
         : `<div class="token-hero-banner-placeholder">NO BANNER</div>`}
       <div class="token-hero-info">
-        ${token.icon ? `<img class="token-hero-icon" src="${token.icon}" alt="" onerror="this.style.display='none'">` : ''}
+        ${token.icon && token.icon.startsWith('http') ? `<img class="token-hero-icon" src="${token.icon}" alt="" onerror="this.style.display='none'">` : ''}
         <div>
           <div class="token-hero-name">${token.chainId?.toUpperCase() || ''}</div>
           <div class="token-hero-addr">${token.tokenAddress}</div>
@@ -2436,7 +2457,7 @@ function renderWatchlist() {
 
     return `<div class="wl-card">
       <div class="wl-card-header">
-        ${token.icon ? `<img class="token-icon" src="${token.icon}" onerror="this.style.display='none'" alt="">` : '<div class="token-icon-placeholder">🪙</div>'}
+        ${token.icon && token.icon.startsWith('http') ? `<img class="token-icon" src="${token.icon}" onerror="this.style.display='none'" alt="">` : '<div class="token-icon-placeholder">🪙</div>'}
         <div>
           <div class="token-name">${shortenAddr(token.tokenAddress)}</div>
           <div class="token-addr">${token.chainId?.toUpperCase()}</div>
