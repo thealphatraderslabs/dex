@@ -1242,6 +1242,10 @@ select.filter-select:focus { border-color: var(--border2); }
 .toast.boost { border-left: 3px solid var(--gold); }
 .toast.profile { border-left: 3px solid var(--teal); }
 .toast.cto { border-left: 3px solid var(--green); }
+.toast[style*="cursor: pointer"]:hover {
+  background: var(--bg3);
+  border-left-color: var(--green);
+}
 
 @keyframes toastIn {
   from { opacity: 0; transform: translateX(20px); }
@@ -1523,7 +1527,7 @@ function saveWatchlist() {
 // ═══════════════════════════════════════════════════════════════
 //  RATE-LIMITED API QUEUE (max 50 req/min, keep 10 as buffer)
 // ═══════════════════════════════════════════════════════════════
-async function apiGet(url) {
+async function apiGet(url, timeoutMs = 10000) {
   // Reset counter each minute
   const now = Date.now();
   if (now - state.lastMinuteReset > 60000) {
@@ -1540,7 +1544,10 @@ async function apiGet(url) {
   state.reqCount++;
   updateRateDisplay();
   try {
-    const res = await fetch(url);
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    const res = await fetch(url, { signal: controller.signal });
+    clearTimeout(timer);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return await res.json();
   } catch(e) {
@@ -1557,36 +1564,55 @@ function updateRateDisplay() {
 // ═══════════════════════════════════════════════════════════════
 //  BACKGROUND NAME FETCHER
 //  The profile WS stream has no name/symbol — we fetch it quietly
-//  from the pairs endpoint and update the row once resolved.
+//  from the pairs endpoint. Only run for tokens with score >= 40
+//  and throttle to max 1 fetch per 2s to protect rate limits.
 // ═══════════════════════════════════════════════════════════════
+let _nameFetchQueue = [];
+let _nameFetchRunning = false;
+
 async function fetchTokenName(token) {
   const key = tokenKey(token);
-  if (state.nameCache[key]) return; // already fetched
+  if (state.nameCache[key]) return;
+  // Only bother fetching names for tokens worth watching
+  if ((token._score || 0) < 30) { state.nameCache[key] = null; return; }
   state.nameCache[key] = 'pending';
+  _nameFetchQueue.push(token);
+  if (!_nameFetchRunning) _runNameFetchQueue();
+}
 
-  try {
-    const data = await apiGet(ENDPOINTS.tokenPairs(token.chainId, token.tokenAddress));
-    const pairs = Array.isArray(data) ? data : [];
-    if (pairs.length > 0) {
-      const p = pairs[0];
-      const name   = p.baseToken?.name   || p.baseToken?.symbol || '';
-      const symbol = p.baseToken?.symbol || '';
-      if (name || symbol) {
-        state.nameCache[key] = { name, symbol };
-        // Patch the stored token so re-renders pick up the name
-        const stored = state.tokens.find(t => tokenKey(t) === key);
-        if (stored) {
-          stored.name   = name;
-          stored.symbol = symbol;
-          if (state.currentScreen === 'radar') renderRadar();
+async function _runNameFetchQueue() {
+  _nameFetchRunning = true;
+  while (_nameFetchQueue.length > 0) {
+    const token = _nameFetchQueue.shift();
+    const key = tokenKey(token);
+    if (state.nameCache[key] !== 'pending') continue;
+    try {
+      const data = await apiGet(ENDPOINTS.tokenPairs(token.chainId, token.tokenAddress));
+      const pairs = Array.isArray(data) ? data : [];
+      if (pairs.length > 0) {
+        const p = pairs[0];
+        const name   = p.baseToken?.name   || p.baseToken?.symbol || '';
+        const symbol = p.baseToken?.symbol || '';
+        if (name || symbol) {
+          state.nameCache[key] = { name, symbol };
+          const stored = state.tokens.find(t => tokenKey(t) === key);
+          if (stored) {
+            stored.name   = name;
+            stored.symbol = symbol;
+          }
+        } else {
+          state.nameCache[key] = null;
         }
       } else {
-        state.nameCache[key] = null; // nothing found, don't retry
+        state.nameCache[key] = null;
       }
+    } catch(e) {
+      state.nameCache[key] = null;
     }
-  } catch(e) {
-    state.nameCache[key] = null;
+    // Throttle: 1 name fetch per 3 seconds to keep rate limit headroom
+    await new Promise(r => setTimeout(r, 3000));
   }
+  _nameFetchRunning = false;
 }
 function connectWS(name, url, onMessage) {
   function connect() {
@@ -1674,8 +1700,8 @@ function ingestToken(tokenData, source = 'profile') {
     fetchTokenName(enriched);
     // Toast only after initial burst has settled
     if (state._ready) {
-      const label = tokenData.name || tokenData.symbol || shortenAddr(tokenData.tokenAddress);
-      showToast(`New profile: ${tokenData.chainId.toUpperCase()} · ${label}`, 'profile');
+      const label = enriched.name || enriched.symbol || shortenAddr(tokenData.tokenAddress);
+      showToast(`🆕 ${tokenData.chainId.toUpperCase()} · ${label}`, 'profile', enriched);
     }
   }
 
@@ -1726,51 +1752,124 @@ function ingestCTO(ctoData) {
 // ═══════════════════════════════════════════════════════════════
 //  SCORING ENGINE (0–100)
 // ═══════════════════════════════════════════════════════════════
-function computeScore(token, boostData, isCTO) {
+function computeScore(token, boostData, isCTO, pair = null) {
   let score = 0;
   const links = token.links || [];
 
-  const hasTwitter = links.some(l => l.type === 'twitter');
+  const hasTwitter  = links.some(l => l.type === 'twitter');
   const hasTelegram = links.some(l => l.type === 'telegram');
-  const hasWebsite = links.some(l => l.label === 'Website' || (!l.type && l.url));
-  const hasIcon = !!token.icon;
-  const hasBanner = !!token.header;
-  const hasDesc = token.description && token.description.trim().length > 30;
-  const descLen = token.description ? token.description.trim().length : 0;
+  const hasWebsite  = links.some(l => l.label === 'Website' || (!l.type && l.url));
+  const hasIcon     = !!(token.icon && token.icon.startsWith('http'));
+  const hasBanner   = !!token.header;
+  const descLen     = token.description ? token.description.trim().length : 0;
+  const hasDesc     = descLen > 30;
 
-  // Social completeness: 20pts
-  if (hasTwitter) score += 7;
+  // ── Profile completeness (25 pts) ──────────────────────────
+  if (hasTwitter)  score += 8;
   if (hasTelegram) score += 7;
-  if (hasWebsite) score += 6;
+  if (hasWebsite)  score += 5;
+  if (hasBanner)   score += 3;
+  if (hasDesc)     score += 2;
 
-  // Profile quality: 15pts
-  if (hasBanner) score += 7;
-  if (hasDesc) score += 5;
-  if (descLen > 100) score += 3;
+  // ── Market signals from pair data (45 pts) ─────────────────
+  if (pair) {
+    const liq     = pair.liquidity?.usd || 0;
+    const vol24h  = pair.volume?.h24 || 0;
+    const vol1h   = pair.volume?.h1 || 0;
+    const buys1h  = pair.txns?.h1?.buys  || 0;
+    const sells1h = pair.txns?.h1?.sells || 0;
+    const txns1h  = buys1h + sells1h;
+    const fdv     = pair.fdv || 0;
+    const pc5m    = pair.priceChange?.m5  || 0;
+    const pc1h    = pair.priceChange?.h1  || 0;
+    const pc24h   = pair.priceChange?.h24 || 0;
 
-  // Has icon: 5pts
-  if (hasIcon) score += 5;
+    // Liquidity tiers (0–12 pts)
+    if (liq >= 50000)      score += 12;
+    else if (liq >= 20000) score += 9;
+    else if (liq >= 5000)  score += 6;
+    else if (liq >= 1000)  score += 3;
+    else if (liq > 0)      score += 1;
 
-  // Boost presence: 20pts
-  if (boostData) {
-    const amount = boostData.totalAmount || boostData.amount || 0;
-    if (amount > 0) score += 8;
-    if (amount > 100) score += 6;
-    if (amount > 500) score += 6;
+    // Buy pressure: buys > sells in last 1h (0–8 pts)
+    if (txns1h > 0) {
+      const buyPct = buys1h / txns1h;
+      if (buyPct >= 0.65)      score += 8;
+      else if (buyPct >= 0.55) score += 5;
+      else if (buyPct >= 0.45) score += 2;
+      // negative pressure: more sellers
+      else if (buyPct < 0.35)  score -= 4;
+    }
+
+    // Transaction activity (0–8 pts)
+    if (txns1h >= 100)     score += 8;
+    else if (txns1h >= 50) score += 6;
+    else if (txns1h >= 20) score += 4;
+    else if (txns1h >= 5)  score += 2;
+
+    // Volume health (0–8 pts)
+    if (vol1h >= 10000)     score += 8;
+    else if (vol1h >= 5000) score += 5;
+    else if (vol1h >= 1000) score += 3;
+    else if (vol1h > 0)     score += 1;
+
+    // Price momentum: not crashing (0–9 pts, can be negative)
+    if (pc5m > 5)          score += 3;
+    else if (pc5m > 1)     score += 1;
+    else if (pc5m < -20)   score -= 5;
+    else if (pc5m < -10)   score -= 3;
+
+    if (pc1h > 10)         score += 3;
+    else if (pc1h > 0)     score += 1;
+    else if (pc1h < -30)   score -= 4;
+
+    if (pc24h > 20)        score += 3;
+    else if (pc24h > 0)    score += 1;
+    else if (pc24h < -50)  score -= 3;
+
+    // FDV sanity — extremely high FDV on new token = pump risk
+    if (fdv > 0) {
+      if (fdv > 100_000_000)      score -= 8;  // >$100M FDV on new coin: suspicious
+      else if (fdv > 10_000_000)  score -= 3;
+      else if (fdv < 5_000_000)   score += 2;  // reasonable valuation
+    }
   }
 
-  // CTO: 10pts (community believes in revival)
-  if (isCTO) score += 10;
+  // ── Boost & CTO signals (15 pts) ──────────────────────────
+  if (boostData) {
+    const amount = boostData.totalAmount || boostData.amount || 0;
+    if (amount > 0)   score += 5;
+    if (amount > 100) score += 5;
+    if (amount > 500) score += 5;
+  }
+  if (isCTO) score += 8;
 
-  // Link count diversity: 5pts
+  // ── Link diversity bonus (5 pts) ──────────────────────────
   const linkTypes = new Set(links.map(l => l.type || 'web'));
-  if (linkTypes.size >= 3) score += 5;
+  if (linkTypes.size >= 3)      score += 5;
   else if (linkTypes.size >= 2) score += 3;
 
-  // Penalize missing basics
-  if (!hasTwitter && !hasTelegram) score -= 5;
+  // ── Penalties ─────────────────────────────────────────────
+  if (!hasTwitter && !hasTelegram) score -= 8;  // no social = red flag
+  if (!hasIcon)                    score -= 3;
 
   return Math.max(0, Math.min(100, Math.round(score)));
+}
+
+// Re-score token using live pair data and update the row in-place
+function rescoreWithPairData(token, pair) {
+  const key = tokenKey(token);
+  const newScore = computeScore(token, token._boostData, token._isCTO, pair);
+  token._score = newScore;
+  token._pairData = pair;
+  const stored = state.tokens.find(t => tokenKey(t) === key);
+  if (stored) {
+    stored._score = newScore;
+    stored._pairData = pair;
+  }
+  // Update the row in the DOM without full re-render
+  const row = document.querySelector(`.token-card[data-key="${key}"]`);
+  if (row) _patchRow(row, token);
 }
 
 function scoreClass(score) {
@@ -2062,23 +2161,42 @@ async function openResearchPanel(token) {
   state.panelToken = token;
   el('research-panel').classList.add('open');
   el('panel-backdrop').classList.add('show');
-  el('panel-title').textContent = shortenAddr(token.tokenAddress);
+
+  // Show name if known, else address
+  const displayName = token.name || token.symbol || shortenAddr(token.tokenAddress);
+  el('panel-title').textContent = displayName;
 
   const dexLink = el('panel-dex-link');
   dexLink.href = token.url || `https://dexscreener.com/${token.chainId}/${token.tokenAddress}`;
 
   updateWatchBtn();
 
-  // Show loading state
   el('panel-body').innerHTML = `<div class="panel-loading"><div class="spinner"></div><div>Fetching market data...</div></div>`;
 
-  // Fetch pairs + orders in parallel
-  const [pairsData, ordersData] = await Promise.all([
-    apiGet(ENDPOINTS.tokenPairs(token.chainId, token.tokenAddress)),
-    apiGet(ENDPOINTS.orders(token.chainId, token.tokenAddress)),
-  ]);
+  try {
+    // Fetch with a generous timeout — show what we have if it times out
+    const [pairsData, ordersData] = await Promise.all([
+      apiGet(ENDPOINTS.tokenPairs(token.chainId, token.tokenAddress), 12000),
+      apiGet(ENDPOINTS.orders(token.chainId, token.tokenAddress), 12000),
+    ]);
 
-  renderPanel(token, pairsData, ordersData);
+    // Re-score now that we have real market data
+    const pairs = Array.isArray(pairsData) ? pairsData : [];
+    const bestPair = pairs.sort((a, b) => (b.liquidity?.usd || 0) - (a.liquidity?.usd || 0))[0] || null;
+    if (bestPair) {
+      rescoreWithPairData(token, bestPair);
+    }
+
+    renderPanel(token, pairsData, ordersData);
+  } catch(e) {
+    el('panel-body').innerHTML = `
+      <div class="panel-loading" style="flex-direction:column;gap:12px">
+        <div style="font-size:24px">⚠️</div>
+        <div style="color:var(--muted)">Could not fetch market data</div>
+        <div style="font-size:10px;color:var(--muted)">${e.message || 'Network error'}</div>
+        <a href="${token.url || `https://dexscreener.com/${token.chainId}/${token.tokenAddress}`}" target="_blank" class="btn btn-sm" style="margin-top:8px">Open on DexScreener ↗</a>
+      </div>`;
+  }
 }
 
 function closePanel() {
@@ -2627,13 +2745,18 @@ function handleRefresh() {
 // ═══════════════════════════════════════════════════════════════
 //  TOAST
 // ═══════════════════════════════════════════════════════════════
-function showToast(msg, type = 'profile') {
+function showToast(msg, type = 'profile', token = null) {
   const container = el('toast-container');
   const toast = document.createElement('div');
   toast.className = `toast ${type}`;
   toast.textContent = msg;
+  if (token) {
+    toast.style.cursor = 'pointer';
+    toast.title = 'Click to research';
+    toast.onclick = () => openResearchPanel(token);
+  }
   container.appendChild(toast);
-  setTimeout(() => { toast.style.opacity = '0'; toast.style.transition = 'opacity 0.3s'; setTimeout(() => toast.remove(), 300); }, 4000);
+  setTimeout(() => { toast.style.opacity = '0'; toast.style.transition = 'opacity 0.3s'; setTimeout(() => toast.remove(), 300); }, 5000);
 }
 
 // ═══════════════════════════════════════════════════════════════
