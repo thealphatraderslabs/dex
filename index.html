@@ -1478,6 +1478,8 @@ let state = {
   metaData: [],
   boostsTopData: [],
   _ready: false,        // suppress toasts during initial WS burst
+  _readyAt: 0,          // ms timestamp after which toasts are allowed
+  nameCache: {},        // key=chain:addr → {name, symbol}
 };
 
 // Load watchlist from localStorage
@@ -1529,8 +1531,39 @@ function updateRateDisplay() {
 }
 
 // ═══════════════════════════════════════════════════════════════
-//  WEBSOCKET MANAGER
+//  BACKGROUND NAME FETCHER
+//  The profile WS stream has no name/symbol — we fetch it quietly
+//  from the pairs endpoint and update the row once resolved.
 // ═══════════════════════════════════════════════════════════════
+async function fetchTokenName(token) {
+  const key = tokenKey(token);
+  if (state.nameCache[key]) return; // already fetched
+  state.nameCache[key] = 'pending';
+
+  try {
+    const data = await apiGet(ENDPOINTS.tokenPairs(token.chainId, token.tokenAddress));
+    const pairs = Array.isArray(data) ? data : [];
+    if (pairs.length > 0) {
+      const p = pairs[0];
+      const name   = p.baseToken?.name   || p.baseToken?.symbol || '';
+      const symbol = p.baseToken?.symbol || '';
+      if (name || symbol) {
+        state.nameCache[key] = { name, symbol };
+        // Patch the stored token so re-renders pick up the name
+        const stored = state.tokens.find(t => tokenKey(t) === key);
+        if (stored) {
+          stored.name   = name;
+          stored.symbol = symbol;
+          if (state.currentScreen === 'radar') renderRadar();
+        }
+      } else {
+        state.nameCache[key] = null; // nothing found, don't retry
+      }
+    }
+  } catch(e) {
+    state.nameCache[key] = null;
+  }
+}
 function connectWS(name, url, onMessage) {
   function connect() {
     const ws = new WebSocket(url);
@@ -1613,9 +1646,11 @@ function ingestToken(tokenData, source = 'profile') {
     state.seenCount++;
     el('stat-seen').textContent = state.seenCount;
     if (state.tokens.length > 500) state.tokens.pop();
+    // Fetch the real name/symbol in the background
+    fetchTokenName(enriched);
     // Toast only after initial burst has settled
     if (state._ready) {
-      const label = tokenData.name ? tokenData.name : shortenAddr(tokenData.tokenAddress);
+      const label = tokenData.name || tokenData.symbol || shortenAddr(tokenData.tokenAddress);
       showToast(`New profile: ${tokenData.chainId.toUpperCase()} · ${label}`, 'profile');
     }
   }
@@ -1790,8 +1825,10 @@ function buildTokenCard(token) {
   const hasWebsite = links.some(l => l.label === 'Website' || (!l.type && l.url));
   const age = timeAgo(token._firstSeen);
 
-  // Prefer human-readable name/symbol over address
-  const displayName = token.name || token.symbol || shortenAddr(token.tokenAddress);
+  // Prefer human-readable name/symbol — may arrive async via nameCache
+  const cached = state.nameCache[tokenKey(token)];
+  const cachedName = cached && cached !== 'pending' ? (cached.name || cached.symbol) : null;
+  const displayName = token.name || token.symbol || cachedName || shortenAddr(token.tokenAddress);
 
   const div = document.createElement('div');
   div.className = `token-card score-${sc}`;
@@ -2529,8 +2566,9 @@ function init() {
     ingestToken(token, 'update');
   });
 
-  // Suppress toasts during the initial WS data burst, enable after 4s
-  setTimeout(() => { state._ready = true; }, 4000);
+  // Suppress toasts during the initial WS data burst — 12s to let all catch-up messages drain
+  state._readyAt = Date.now() + 12000;
+  setTimeout(() => { state._ready = true; }, 12000);
 
   // Update connecting message
   setTimeout(() => {
