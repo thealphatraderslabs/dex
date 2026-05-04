@@ -487,6 +487,14 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:9999;
 // ATL · NEW COIN INTEL
 // ═══════════════════════════════════════════════════
 
+// Safe base64 placeholder — declared at top so all functions can reference it
+const PH_IMG='data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNiIgaGVpZ2h0PSIyNiI+PHJlY3Qgd2lkdGg9IjI2IiBoZWlnaHQ9IjI2IiBmaWxsPSIjMTExODIwIi8+PHRleHQgeD0iMTMiIHk9IjE4IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmb250LXNpemU9IjExIiBmaWxsPSIjNWE2NDcwIj4/PC90ZXh0Pjwvc3ZnPg==';
+// Strip trailing pump suffix some APIs append to Solana mint addresses - causes RugCheck 400
+function cleanMint(mint){ return String(mint||'').replace(/pump$/i,'').replace(/\/$/, '').trim(); }
+function validUrl(u){ return typeof u==='string'&&u.startsWith('https://'); }
+function esc(s){ return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function chainLbl(c){ return ({solana:'SOL',ethereum:'ETH',bsc:'BSC',base:'BASE',polygon:'POL',arbitrum:'ARB'})[c]||(c||'?').toUpperCase().slice(0,4); }
+
 const S = {
   tokens: new Map(),
   watchlist: new Set(JSON.parse(localStorage.getItem('atl-wl')||'[]')),
@@ -726,7 +734,8 @@ function onNewToken(data) {
 
 // ── RUGCHECK ─────────────────────────────────────
 async function fetchRug(mint) {
-  const res=await fetch(`https://api.rugcheck.xyz/v1/tokens/${mint}/report`);
+  const m=cleanMint(mint);
+  const res=await fetch(`https://api.rugcheck.xyz/v1/tokens/${m}/report`);
   if(!res.ok) return;
   const data=await res.json();
   const t=S.tokens.get(mint); if(!t) return;
@@ -769,53 +778,90 @@ async function fetchDex(mint) {
 }
 
 // ── ROW RENDERING ────────────────────────────────
-function rowHTML(t) {
+// NEVER put raw URLs inside innerHTML - always set img.src via setAttribute after parse
+function buildRow(t) {
   const {score:sc}=score(t); t.score=sc;
   const vd=verdict(sc);
-  const img=validUrl(t.image_uri)?t.image_uri:ph();
   const addr=t.mint?t.mint.slice(0,6)+'…'+t.mint.slice(-4):'—';
-  const age=t.pairCreatedAt?fmtAge(t.pairCreatedAt):'<span class="ldots" style="color:var(--muted)"></span>';
-  return `
-    <div class="c-icon">
-      <img src="${img}" width="26" height="26" alt="" data-fallback="1">
-      <span class="cb">${chainLbl(t.chain)}</span>
-    </div>
-    <div class="c-name">
-      <div class="nm">${esc(t.name)} <span style="color:var(--muted);font-size:9px;font-family:'JetBrains Mono',monospace">${esc(t.symbol)}</span></div>
-      <div class="adr">${addr}</div>
-    </div>
-    <div class="c-chain">${chainLbl(t.chain)}</div>
-    <div class="c-soc">
-      ${t.twitter?`<a class="si has" href="${esc(t.twitter)}" target="_blank" onclick="event.stopPropagation()">X</a>`:'<span class="si">X</span>'}
-      ${t.telegram?`<a class="si has" href="${esc(t.telegram)}" target="_blank" onclick="event.stopPropagation()">TG</a>`:'<span class="si">TG</span>'}
-      ${t.website?`<a class="si has" href="${esc(t.website)}" target="_blank" onclick="event.stopPropagation()">W</a>`:'<span class="si">W</span>'}
-    </div>
-    <div class="c-score">
-      <div class="sc-num ${vd}">${sc}</div>
-      <div class="sc-bar"><div class="sc-fill ${vd}" style="width:${sc}%"></div></div>
-    </div>
-    <div><span class="vbadge ${vd}">${vd}</span></div>
-    <div class="c-age">${age}</div>
-    <div class="c-sigs">
-      ${t.hasEntry?'<span class="stag entry">Entry</span>':''}
-      ${t.isBoosted?'<span class="stag boost">Boost</span>':''}
-      ${t.isCTO?'<span class="stag cto">CTO</span>':''}
-    </div>`;
+  const age=t.pairCreatedAt?fmtAge(t.pairCreatedAt):'···';
+
+  const row=document.createElement('div');
+  row.className='t-row '+vd+(t.hasEntry?' e-active':'');
+  row.dataset.mint=t.mint;
+  row.dataset.score=sc;
+  row.dataset.age=t.pairCreatedAt||t.seenAt;
+  row.onclick=()=>openPanel(t.mint);
+
+  // Icon cell — build via DOM to avoid any URL injection into innerHTML
+  const cIcon=document.createElement('div');
+  cIcon.className='c-icon';
+  const img=document.createElement('img');
+  img.width=26; img.height=26; img.alt='';
+  img.onerror=function(){ this.src=PH_IMG; this.onerror=null; };
+  img.src=validUrl(t.image_uri)?t.image_uri:PH_IMG;
+  const cb=document.createElement('span');
+  cb.className='cb'; cb.textContent=chainLbl(t.chain);
+  cIcon.appendChild(img); cIcon.appendChild(cb);
+
+  // Name cell
+  const cName=document.createElement('div');
+  cName.className='c-name';
+  cName.innerHTML=`<div class="nm">${esc(t.name)} <span style="color:var(--muted);font-size:9px;font-family:'JetBrains Mono',monospace">${esc(t.symbol)}</span></div><div class="adr">${addr}</div>`;
+
+  // Chain cell
+  const cChain=document.createElement('div');
+  cChain.className='c-chain'; cChain.textContent=chainLbl(t.chain);
+
+  // Socials cell — build anchor hrefs via setAttribute
+  const cSoc=document.createElement('div');
+  cSoc.className='c-soc';
+  function mkSoc(label, url) {
+    if(url) {
+      const a=document.createElement('a');
+      a.className='si has'; a.textContent=label; a.target='_blank';
+      a.setAttribute('href', url);
+      a.onclick=e=>e.stopPropagation();
+      return a;
+    }
+    const s=document.createElement('span'); s.className='si'; s.textContent=label; return s;
+  }
+  cSoc.appendChild(mkSoc('X',t.twitter));
+  cSoc.appendChild(mkSoc('TG',t.telegram));
+  cSoc.appendChild(mkSoc('W',t.website));
+
+  // Score cell
+  const cScore=document.createElement('div');
+  cScore.className='c-score';
+  cScore.innerHTML=`<div class="sc-num ${vd}">${sc}</div><div class="sc-bar"><div class="sc-fill ${vd}" style="width:${sc}%"></div></div>`;
+
+  // Verdict
+  const cVerdict=document.createElement('div');
+  cVerdict.innerHTML=`<span class="vbadge ${vd}">${vd}</span>`;
+
+  // Age
+  const cAge=document.createElement('div');
+  cAge.className='c-age';
+  if(t.pairCreatedAt) cAge.textContent=age;
+  else { cAge.innerHTML='<span class="ldots" style="color:var(--muted)"></span>'; }
+
+  // Signals
+  const cSigs=document.createElement('div');
+  cSigs.className='c-sigs';
+  if(t.hasEntry) { const s=document.createElement('span'); s.className='stag entry'; s.textContent='Entry'; cSigs.appendChild(s); }
+  if(t.isBoosted) { const s=document.createElement('span'); s.className='stag boost'; s.textContent='Boost'; cSigs.appendChild(s); }
+  if(t.isCTO) { const s=document.createElement('span'); s.className='stag cto'; s.textContent='CTO'; cSigs.appendChild(s); }
+
+  row.appendChild(cIcon); row.appendChild(cName); row.appendChild(cChain);
+  row.appendChild(cSoc); row.appendChild(cScore); row.appendChild(cVerdict);
+  row.appendChild(cAge); row.appendChild(cSigs);
+  return row;
 }
 
 function insertRow(t) {
   const existing=document.querySelector(`[data-mint="${t.mint}"]`);
   if(existing){ patchRow(t); return; }
-  const {score:sc}=score(t); t.score=sc;
-  const vd=verdict(sc);
-  const row=document.createElement('div');
-  row.className=`t-row ${vd} new-row`;
-  row.dataset.mint=t.mint;
-  row.dataset.score=sc;
-  row.dataset.age=t.pairCreatedAt||t.seenAt;
-  row.onclick=()=>openPanel(t.mint);
-  row.innerHTML=rowHTML(t);
-  wireImages(row);
+  const row=buildRow(t);
+  row.classList.add('new-row');
   const list=document.getElementById('radar-list');
   if(list.firstChild&&!list.firstChild.id) list.insertBefore(row,list.firstChild);
   else list.appendChild(row);
@@ -823,22 +869,11 @@ function insertRow(t) {
 }
 
 function patchRow(t) {
-  const row=document.querySelector(`[data-mint="${t.mint}"]`);
-  if(!row) return;
-  const {score:sc}=score(t); t.score=sc;
-  const vd=verdict(sc);
-  row.className=`t-row ${vd}${t.hasEntry?' e-active':''}`;
-  row.dataset.score=sc;
-  row.dataset.age=t.pairCreatedAt||t.seenAt;
-  row.innerHTML=rowHTML(t);
-  wireImages(row);
+  const old=document.querySelector(`[data-mint="${t.mint}"]`);
+  if(!old) return;
+  const row=buildRow(t);
+  old.replaceWith(row);
   applyFilters();
-}
-
-function wireImages(row) {
-  row.querySelectorAll('img[data-fallback]').forEach(img=>{
-    img.onerror=function(){ this.src=ph(); this.onerror=null; };
-  });
 }
 
 function applyFilters() {
@@ -898,25 +933,34 @@ function closePanel() {
 function renderPanel(t) {
   const {score:sc,breakdown:bd}=score(t); t.score=sc;
   const vd=verdict(sc);
-  // Header
+  // Header — set img.src via DOM property, never innerHTML
   const img=document.getElementById('pi-img');
-  if(img){ img.src=validUrl(t.image_uri)?t.image_uri:ph(); img.onerror=function(){this.src=ph();this.onerror=null;}; }
+  if(img){
+    img.onerror=function(){this.src=PH_IMG;this.onerror=null;};
+    img.src=validUrl(t.image_uri)?t.image_uri:PH_IMG;
+  }
   setText('pi-name',t.name);
-  setText('pi-sym',`${t.symbol} · ${chainLbl(t.chain)}`);
+  setText('pi-sym',t.symbol+' · '+chainLbl(t.chain));
   const addr=document.getElementById('pi-addr');
   if(addr){
     addr.textContent=t.mint;
     addr.onclick=()=>{ navigator.clipboard?.writeText(t.mint); toast('Copied','Address copied',null); };
   }
+  // Links — build via createElement to avoid href injection
   const links=document.getElementById('pi-links');
   if(links){
     links.innerHTML='';
-    if(t.twitter) links.innerHTML+=`<a class="plink" href="${esc(t.twitter)}" target="_blank">Twitter</a>`;
-    if(t.telegram) links.innerHTML+=`<a class="plink" href="${esc(t.telegram)}" target="_blank">Telegram</a>`;
-    if(t.website) links.innerHTML+=`<a class="plink" href="${esc(t.website)}" target="_blank">Website</a>`;
-    links.innerHTML+=`<a class="plink" href="https://dexscreener.com/solana/${t.mint}" target="_blank">DexScreener</a>`;
-    if(t.source==='pumpfun') links.innerHTML+=`<a class="plink" href="https://pump.fun/${t.mint}" target="_blank">pump.fun</a>`;
-    links.innerHTML+=`<a class="plink" href="https://rugcheck.xyz/tokens/${t.mint}" target="_blank">RugCheck</a>`;
+    function mkLink(label, url) {
+      const a=document.createElement('a');
+      a.className='plink'; a.textContent=label; a.target='_blank'; a.rel='noopener';
+      a.setAttribute('href', url); return a;
+    }
+    if(t.twitter) links.appendChild(mkLink('Twitter',t.twitter));
+    if(t.telegram) links.appendChild(mkLink('Telegram',t.telegram));
+    if(t.website) links.appendChild(mkLink('Website',t.website));
+    links.appendChild(mkLink('DexScreener','https://dexscreener.com/solana/'+t.mint));
+    if(t.source==='pumpfun') links.appendChild(mkLink('pump.fun','https://pump.fun/'+t.mint));
+    links.appendChild(mkLink('RugCheck','https://rugcheck.xyz/tokens/'+cleanMint(t.mint)));
   }
   // Score
   const sn=document.getElementById('pi-score');
@@ -1043,15 +1087,20 @@ function renderPanel(t) {
         <div><div class="tll">${item.l}</div><div class="tlt">${item.t2||'Pending'}</div></div>
       </div>`).join('');
   }
-  // Actions
+  // Actions — build via DOM, no raw URLs in innerHTML
   const act=document.getElementById('pi-actions');
   if(act){
+    act.innerHTML='';
     const inWl=S.watchlist.has(t.mint);
-    act.innerHTML=`
-      <button class="abtn ${inWl?'pri':''}" onclick="toggleWL('${t.mint}')">${inWl?'★ Watchlisted':'+ Watchlist'}</button>
-      <a class="abtn" href="https://dexscreener.com/solana/${t.mint}" target="_blank">DexScreener ↗</a>
-      ${t.source==='pumpfun'?`<a class="abtn" href="https://pump.fun/${t.mint}" target="_blank">pump.fun ↗</a>`:''}
-      <a class="abtn" href="https://rugcheck.xyz/tokens/${t.mint}" target="_blank">RugCheck ↗</a>`;
+    const wlBtn=document.createElement('button');
+    wlBtn.className='abtn'+(inWl?' pri':'');
+    wlBtn.textContent=inWl?'★ Watchlisted':'+ Watchlist';
+    wlBtn.onclick=()=>toggleWL(t.mint);
+    act.appendChild(wlBtn);
+    function mkActLink(label,url){ const a=document.createElement('a'); a.className='abtn'; a.textContent=label; a.target='_blank'; a.rel='noopener'; a.setAttribute('href',url); return a; }
+    act.appendChild(mkActLink('DexScreener ↗','https://dexscreener.com/solana/'+t.mint));
+    if(t.source==='pumpfun') act.appendChild(mkActLink('pump.fun ↗','https://pump.fun/'+t.mint));
+    act.appendChild(mkActLink('RugCheck ↗','https://rugcheck.xyz/tokens/'+cleanMint(t.mint)));
   }
 }
 
@@ -1074,25 +1123,36 @@ function renderWL() {
   grid.innerHTML='';
   for(const mint of S.watchlist){
     const t=S.tokens.get(mint);
-    if(!t){ grid.innerHTML+=`<div class="wcard"><div class="wcard-top"><div><div class="wcard-nm">${mint.slice(0,8)}…</div><div class="wcard-sy" style="color:var(--muted)">Not in session</div></div></div></div>`; continue; }
+    const card=document.createElement('div');
+    card.className='wcard';
+    if(!t){
+      card.innerHTML=`<div class="wcard-top"><div><div class="wcard-nm">${mint.slice(0,8)}…</div><div class="wcard-sy" style="color:var(--muted)">Not in session</div></div></div>`;
+      grid.appendChild(card); continue;
+    }
     const {score:sc}=score(t); const vd=verdict(sc);
-    const img=validUrl(t.image_uri)?t.image_uri:ph();
     const p1h=t.dexData?.p1h||0;
-    grid.innerHTML+=`<div class="wcard" onclick="openPanel('${mint}')">
-      <div class="wcard-top">
-        <img src="${img}" alt="" onerror="this.src='${ph()}'">
-        <div><div class="wcard-nm">${esc(t.name)}</div><div class="wcard-sy">${esc(t.symbol)}</div></div>
-        <span class="vbadge ${vd}" style="margin-left:auto">${vd}</span>
-      </div>
-      <div class="wmg">
-        <div class="wm"><div class="wm-l">Score</div><div class="wm-v" style="color:${vd==='strong'?'var(--green)':vd==='watch'?'var(--gold)':vd==='weak'?'var(--orange)':'var(--red)'}">${sc}</div></div>
-        <div class="wm"><div class="wm-l">1h</div><div class="wm-v" style="color:${p1h>=0?'var(--green)':'var(--red)'}">${p1h>=0?'+':''}${p1h.toFixed(1)}%</div></div>
-        <div class="wm"><div class="wm-l">Price</div><div class="wm-v">${t.dexData?fmtPrice(t.dexData.price):'—'}</div></div>
-        <div class="wm"><div class="wm-l">Age</div><div class="wm-v">${fmtAge(t.pairCreatedAt||t.seenAt)}</div></div>
-      </div>
-    </div>`;
+    card.onclick=()=>openPanel(mint);
+    // Build top row via DOM for safe img src
+    const top=document.createElement('div'); top.className='wcard-top';
+    const wimg=document.createElement('img'); wimg.width=26; wimg.height=26; wimg.alt='';
+    wimg.onerror=function(){this.src=PH_IMG;this.onerror=null;};
+    wimg.src=validUrl(t.image_uri)?t.image_uri:PH_IMG;
+    const info=document.createElement('div');
+    info.innerHTML=`<div class="wcard-nm">${esc(t.name)}</div><div class="wcard-sy">${esc(t.symbol)}</div>`;
+    const badge=document.createElement('span');
+    badge.className=`vbadge ${vd}`; badge.style.marginLeft='auto'; badge.textContent=vd;
+    top.appendChild(wimg); top.appendChild(info); top.appendChild(badge);
+    // Metrics
+    const scoreColor=vd==='strong'?'var(--green)':vd==='watch'?'var(--gold)':vd==='weak'?'var(--orange)':'var(--red)';
+    const metrics=document.createElement('div'); metrics.className='wmg';
+    metrics.innerHTML=`
+      <div class="wm"><div class="wm-l">Score</div><div class="wm-v" style="color:${scoreColor}">${sc}</div></div>
+      <div class="wm"><div class="wm-l">1h</div><div class="wm-v" style="color:${p1h>=0?'var(--green)':'var(--red)'}">${p1h>=0?'+':''}${p1h.toFixed(1)}%</div></div>
+      <div class="wm"><div class="wm-l">Price</div><div class="wm-v">${t.dexData?fmtPrice(t.dexData.price):'—'}</div></div>
+      <div class="wm"><div class="wm-l">Age</div><div class="wm-v">${fmtAge(t.pairCreatedAt||t.seenAt)}</div></div>`;
+    card.appendChild(top); card.appendChild(metrics);
+    grid.appendChild(card);
   }
-}
 
 // ── BOOST HANDLER ────────────────────────────────
 function onBoost(data) {
@@ -1241,15 +1301,11 @@ setInterval(()=>{ if(document.getElementById('screen-watchlist').classList.conta
 // ── HELPERS ──────────────────────────────────────
 function upd(id,val){ const el=document.getElementById(id); if(el) el.textContent=val; }
 function setText(id,val){ const el=document.getElementById(id); if(el) el.textContent=val; }
-function validUrl(u){ return typeof u==='string'&&u.startsWith('https://'); }
-function ph(){ return `data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26"><rect width="26" height="26" fill="%23111820"/><text x="13" y="18" text-anchor="middle" font-size="11" fill="%235a6470">?</text></svg>`; }
-function esc(s){ return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
-function chainLbl(c){ return {solana:'SOL',ethereum:'ETH',bsc:'BSC',base:'BASE',polygon:'POL',arbitrum:'ARB'}[c]||(c||'?').toUpperCase().slice(0,4); }
 function buyPct(d){ const t=(d.buys5m||0)+(d.sells5m||0); return t>0?((d.buys5m||0)/t)*100:50; }
 function fmtUSD(n){ if(!n||n<=0) return '—'; if(n>=1e6) return '$'+(n/1e6).toFixed(2)+'M'; if(n>=1000) return '$'+(n/1000).toFixed(1)+'k'; return '$'+n.toFixed(0); }
 function fmtPrice(n){ if(!n||n<=0) return '—'; if(n<0.000001) return '$'+n.toExponential(3); if(n<0.001) return '$'+n.toFixed(7); if(n<1) return '$'+n.toFixed(5); return '$'+n.toFixed(4); }
 function fmtPctRaw(n){ if(n===undefined||n===null) return '—'; return (n>=0?'+':'')+n.toFixed(2)+'%'; }
-function fmtAge(ts){ if(!ts) return '—'; const s=Math.floor((Date.now()-ts)/1000); if(s<60) return Math.max(1,s)+'s'; const m=Math.floor(s/60); if(m<60) return m+'m'; const h=Math.floor(m/60); if(h<24) return h+'h '+( m%60)+'m'; return Math.floor(h/24)+'d'; }
+function fmtAge(ts){ if(!ts) return '—'; const s=Math.floor((Date.now()-ts)/1000); if(s<60) return Math.max(1,s)+'s'; const m=Math.floor(s/60); if(m<60) return m+'m'; const h=Math.floor(m/60); if(h<24) return h+'h '+(m%60)+'m'; return Math.floor(h/24)+'d'; }
 function fmtTs(ts){ return ts?new Date(ts).toLocaleTimeString():'—'; }
 
 // ── INIT ─────────────────────────────────────────
